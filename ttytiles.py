@@ -3,6 +3,91 @@ import sys
 import threading
 from collections import deque
 
+if os.name == "nt":
+    import msvcrt
+else:
+    import tty
+    import termios
+    import select
+
+
+class Keyboard:
+    """
+    Small cross-platform keyboard handler for terminal TUIs.
+    """
+
+    KEY_UP = "UP"
+    KEY_DOWN = "DOWN"
+    KEY_LEFT = "LEFT"
+    KEY_RIGHT = "RIGHT"
+    KEY_BACKSPACE = "BACKSPACE"
+    KEY_ENTER = "ENTER"
+    KEY_ESCAPE = "ESCAPE"
+
+    @staticmethod
+    def getkey():
+        if os.name == "nt":
+            ch = msvcrt.getwch()
+
+            # special keys
+            if ch in ("\x00", "\xe0"):
+                code = msvcrt.getwch()
+
+                return {
+                    "H": Keyboard.KEY_UP,
+                    "P": Keyboard.KEY_DOWN,
+                    "K": Keyboard.KEY_LEFT,
+                    "M": Keyboard.KEY_RIGHT,
+                }.get(code, code)
+
+            if ch == "\r":
+                return Keyboard.KEY_ENTER
+
+            if ch == "\x08":
+                return Keyboard.KEY_BACKSPACE
+
+            if ch == "\x1b":
+                return Keyboard.KEY_ESCAPE
+
+            return ch
+
+        else:
+            fd = sys.stdin.fileno()
+
+            old = termios.tcgetattr(fd)
+
+            try:
+                tty.setcbreak(fd)
+
+                ch = sys.stdin.read(1)
+
+                if ch == "\x1b":
+                    # possible escape sequence
+                    r, _, _ = select.select([sys.stdin], [], [], 0.01)
+
+                    if r:
+                        seq = sys.stdin.read(2)
+
+                        return {
+                            "[A": Keyboard.KEY_UP,
+                            "[B": Keyboard.KEY_DOWN,
+                            "[D": Keyboard.KEY_LEFT,
+                            "[C": Keyboard.KEY_RIGHT,
+                        }.get(seq, Keyboard.KEY_ESCAPE)
+
+                    return Keyboard.KEY_ESCAPE
+
+                if ch in ("\r", "\n"):
+                    return Keyboard.KEY_ENTER
+
+                if ch in ("\x7f", "\b"):
+                    return Keyboard.KEY_BACKSPACE
+
+                return ch
+
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
 class FDInterceptor:
     """
     Intercepts writes to a file descriptor using an OS pipe and forwards captured 
@@ -313,28 +398,226 @@ class Tile:
 
 class InputField:
     """TODO"""
-    def __init__(self, x:int, y:int, width:int, height:int, name:str, border:Border):
+    def __init__(self, fd:int, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str, border:Border):
+        self.fd = fd
         self.x = x #col
         self.y = y #row
         self.width = width 
         self.height = height 
-        self.name = name 
-        self.border = border
 
         # text
         self.rows = height
         self.cols = self.width
         self.tx = self.x
         self.ty = self.y
+        self.border = border
         if self.border.style != Border.NO_BORDER:
             self.tx += 1
             self.ty += 1
             self.rows -= 2
             self.cols -= 2
 
-        self.prompt = ""
+        self.prompt = []
+        self.pIndex = 0
+        self.px = self.tx
+        self.py = self.ty
+        self.setPrompt(prompt)
+        self.inputMax = self.rows * (self.cols - (len(self.prompt) - 1)) - len(self.prompt[-1]) + 1 # max num of chars for input
 
+        self.name = name 
+        self.visible = visible
+        if self.visible:
+            self.show()
+
+    def setPrompt(self, prompt: str):
+        self.prompt = []
+        promptBuffer = 0
+
+        for line in prompt.split('\n'):
+            for i in range(0, len(line), self.cols):
+                chunk = line[i:i + self.cols]
+                self.prompt.append(chunk + ' ' * (self.cols - len(chunk)))
+                promptBuffer = self.cols - len(chunk)
+
+        self.prompt = self.prompt[:self.rows]
+        self.py = self.ty + max(len(self.prompt) - 1, 0)
+        self.px = self.tx + len(self.prompt[-1]) - promptBuffer
+
+    def show(self):
         self.drawBorder()
+        # render text
+        row = self.ty
+        for line in self.prompt:
+            os.write(self.fd, f"\x1b[{row};{self.tx}H{line}".encode())
+            row += 1
+
+    def hide(self):
+        for i, _ in enumerate(self.rows):
+            os.write(self.fd, f"\x1b[{self.x};{self.y + i}H{' ' * self.width}".encode())
+
+    def drawBorder(self):
+        """
+        Draws:
+            - Left and right vertical border lines
+            - Top border line
+            - Bottom border line
+        """
+        for row in range(self.y + 1, self.y + self.height):
+            os.write(self.fd, f"\x1b[{row};{self.x}H{self.border.char}".encode())
+            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 1}H{self.border.char}".encode())
+
+        os.write(self.fd, f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode())
+        os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode())
+
+    def updateInput(self, cursorX:int, cursorY:int, text:str):
+        offset = 0
+        offset = 0
+
+        if cursorY == self.py:
+            # first row
+            offset += cursorX - self.px
+        else:
+            # usable chars on first row
+            offset += self.cols - (self.px - self.tx)
+
+            # full wrapped rows
+            offset += (cursorY - self.py - 1) * self.cols
+
+            # current row offset
+            offset += cursorX - self.tx
+
+        # write
+        cX, cY = cursorX, cursorY
+        t = ''.join(text) + ' ' * (self.inputMax - len(text))
+        for c in t[offset:]:
+            os.write(self.fd, f"\033[{cY};{cX}H{c}".encode())
+            cX += 1
+
+            if cX >= self.tx + self.cols:
+                cX = self.tx
+                cY += 1
+
+    def getInput(self)->str:
+        self.pIndex = 0
+        # move cursor
+        os.write(self.fd, f"\033[{self.py};{self.px}H".encode())
+        cursorX = self.px
+        cursorY = self.py
+
+        # handle keyboard input
+        s = []
+        k = None
+        while k != Keyboard.KEY_ENTER:
+            # show cursor
+            os.write(self.fd, "\033[?25h".encode())
+            k = Keyboard.getkey()
+            # hide cursor
+            os.write(self.fd, "\033[?25l".encode())
+            if k == Keyboard.KEY_LEFT:
+                if cursorY == self.py:
+                    # cursorX cannot be < px
+                    if cursorX > self.px:
+                        cursorX -= 1
+                        self.pIndex -= 1
+                        os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+                else:
+                    # cursorX cannot be < tx
+                    if cursorX == self.tx:
+                        # move cursor to previous line
+                        cursorY -= 1
+                        cursorX = self.tx + self.cols - 1
+                        self.pIndex -= 1
+                        os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+                    else:
+                        cursorX -= 1
+                        self.pIndex -= 1
+                        os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+
+            elif k == Keyboard.KEY_BACKSPACE:
+                if self.pIndex > 0:
+                    # move logical cursor backward
+                    self.pIndex -= 1
+
+                    # move visual cursor backward
+                    if cursorY == self.py:
+                        if cursorX > self.px:
+                            cursorX -= 1
+                    else:
+                        if cursorX == self.tx:
+                            cursorY -= 1
+
+                            # previous row may be prompt row
+                            if cursorY == self.py:
+                                cursorX = self.px + (self.cols - (self.px - self.tx)) - 1
+                            else:
+                                cursorX = self.tx + self.cols - 1
+                        else:
+                            cursorX -= 1
+
+                    # remove char from buffer
+                    del s[self.pIndex]
+
+                    # redraw shifted text
+                    self.updateInput(cursorX, cursorY, s)
+
+                    # erase trailing character left behind
+                    endX = cursorX
+                    endY = cursorY
+
+                    remaining = len(s) - self.pIndex
+
+                    firstWidth = self.cols - (self.px - self.tx)
+
+                    if cursorY == self.py:
+                        remaining -= firstWidth - (cursorX - self.px)
+                    else:
+                        remaining -= self.cols - (cursorX - self.tx)
+
+                    while remaining >= 0:
+                        endX += 1
+
+                        if endX >= self.tx + self.cols:
+                            endX = self.tx
+                            endY += 1
+
+                        remaining -= self.cols
+
+                    # restore cursor
+                    os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+
+
+            elif isinstance(k, str) and len(k) == 1:
+                # insert char into buffer
+                s.insert(self.pIndex, k)
+                self.pIndex += 1
+
+                # write
+                self.updateInput(cursorX, cursorY, s)
+
+                # move cursor
+                cursorX += 1
+                if cursorX > self.tx + self.cols - 1:
+                    cursorX = self.tx
+                    cursorY += 1
+                os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+
+
+            # elif key == Keyboard.KEY_RIGHT:
+            #     if self.cursor < len(self.buffer):
+            #         self.cursor += 1
+
+            # elif key == Keyboard.KEY_ENTER:
+            #     value = "".join(self.buffer)
+
+            #     self.buffer.clear()
+            #     self.cursor = 0
+
+            #     return value
+
+        # clear input
+        self.updateInput(self.px, self.py, "")
+
+        return "".join(s)
 
 
 class TerminalTiler:
@@ -359,6 +642,7 @@ class TerminalTiler:
             os.system("chcp 65001 > nul") #switch to unicode charset
         self.cols, self.rows = os.get_terminal_size()
         self.tiles = {}
+        self.inputFields = {}
         self.stdout_FDI = FDInterceptor(1)
 
     def addTile(self, x:int, y:int, width:int, height:int, name:str, textMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerMode:int=None, headerBorder:bool=False):
@@ -393,6 +677,36 @@ class TerminalTiler:
 
         self.tiles[name] = Tile(self.stdout_FDI.real_fd, x, y, width, height, name, textMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
 
+    def addInputField(self, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str="", borderStyle:int=None, borderChar:str=None):
+        """
+        Creates and registers a new InputField in the terminal layout.
+
+        Performs boundary validation against the terminal size to ensure
+        the tile fits within the visible viewport. Then constructs a Tile
+        instance with the specified border and header configuration and
+        stores it in the tile registry under the provided name.
+
+        Args:
+            x (int): Tile origin column (1-based).
+            y (int): Tile origin row (1-based).
+            width (int): Tile width in characters.
+            height (int): Tile height in rows.
+            name (str): Unique identifier for the tile.
+            visible (bool): Show prompt?
+            prompt (str): Input prompt.
+            borderStyle (int, optional): Border style constant.
+            borderChar (str, optional): Custom border character.
+        """
+        #check dimensions
+        if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
+            raise ValueError("Tile origin is not contained by terminal")
+        elif x + width >= self.cols:
+            raise ValueError("Tile exceeds terminal boundary (X-axis)")
+        elif y + height >= self.rows:
+            raise ValueError("Tile exceeds terminal boundary (Y-axis)")
+
+        self.inputFields[name] = InputField(self.stdout_FDI.real_fd, x, y, width, height, name, visible, prompt, Border(borderStyle, borderChar))
+
     def clearScreen(self):
         """
         Clears terminal screen.
@@ -419,7 +733,7 @@ class TerminalTiler:
         leaving the cursor inside a UI block, restores the terminal cursor
         visibility, and shuts down the stdout FDInterceptor cleanly.
         """
-        maxY = max(tile.y + tile.height for tile in self.tiles.values())
+        maxY = max(tile.y + tile.height for tile in [*self.tiles.values(), *self.inputFields.values()])
         os.write(self.stdout_FDI.real_fd, f"\x1b[{maxY};{1}H".encode())
 
         self.show_cursor()
