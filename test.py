@@ -28,16 +28,24 @@ tt.addTile(x=tt.cols//2,
            headerMode=Header.TEXT_NOWRAP,
            headerBorder=True)
 
+tt.addInputField(x=1,
+                 y=20,
+                 width=30,
+                 height=7,
+                 name="NUMS",
+                 visible=True,
+                 prompt="Enter a number.\n>>> ",
+                 borderStyle=Border.SINGLE_BOX)
+
 # tt.stdout_FDI.setDefaultTarget(tt.tiles["TEST"].updateHeader)
 tt.tiles["EVEN"].updateHeader("Even")
 tt.tiles["ODD"].updateHeader("Odd")
-
+tt.tiles["EVEN"].update(f"{tt.inputFields["NUMS"].inputMax}")
 while True:
-    i = int(input(">"))
+    i = int(tt.inputFields["NUMS"].getInput())
     if i % 2 == 0:
         tt.tiles["EVEN"].update(f"{i}")
     else:
         tt.tiles["ODD"].update(f"{i}")
-
 
 tt.close()
