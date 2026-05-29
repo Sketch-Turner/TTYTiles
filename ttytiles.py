@@ -13,7 +13,7 @@ else:
 
 class Keyboard:
     """
-    Small cross-platform keyboard handler for terminal TUIs.
+    Small cross-platform keyboard handler for terminal UIs.
     """
 
     KEY_UP = "UP"
@@ -21,11 +21,19 @@ class Keyboard:
     KEY_LEFT = "LEFT"
     KEY_RIGHT = "RIGHT"
     KEY_BACKSPACE = "BACKSPACE"
+    KEY_DELETE = "DELETE"
     KEY_ENTER = "ENTER"
     KEY_ESCAPE = "ESCAPE"
+    KEY_END = "END"
+    KEY_HOME = "HOME"
+    KEY_TAB = "TAB"
+    PRINTABLE = set([chr(c) for c in range(32, 127)])
 
     @staticmethod
-    def getkey():
+    def getkey()->str:
+        """
+        Cross-platform key press handler.
+        """
         if os.name == "nt":
             ch = msvcrt.getwch()
 
@@ -38,10 +46,16 @@ class Keyboard:
                     "P": Keyboard.KEY_DOWN,
                     "K": Keyboard.KEY_LEFT,
                     "M": Keyboard.KEY_RIGHT,
+                    "S": Keyboard.KEY_DELETE,
+                    "G": Keyboard.KEY_HOME,
+                    "O": Keyboard.KEY_END,
                 }.get(code, code)
 
             if ch == "\r":
                 return Keyboard.KEY_ENTER
+
+            if ch == "\t":
+                return Keyboard.KEY_TAB
 
             if ch == "\x08":
                 return Keyboard.KEY_BACKSPACE
@@ -68,6 +82,20 @@ class Keyboard:
                     if r:
                         seq = sys.stdin.read(2)
 
+                        # delete: ESC [ 3 ~
+                        if seq == "[3":
+                            if select.select([sys.stdin], [], [], 0.01)[0]:
+                                sys.stdin.read(1)  # consume ~
+                            return Keyboard.KEY_DELETE
+
+                        # home: ESC [ H
+                        if seq == "[H":
+                            return Keyboard.KEY_HOME
+
+                        # end: ESC [ F
+                        if seq == "[F":
+                            return Keyboard.KEY_END
+
                         return {
                             "[A": Keyboard.KEY_UP,
                             "[B": Keyboard.KEY_DOWN,
@@ -80,6 +108,9 @@ class Keyboard:
                 if ch in ("\r", "\n"):
                     return Keyboard.KEY_ENTER
 
+                if ch == "\x09":
+                    return Keyboard.KEY_TAB
+
                 if ch in ("\x7f", "\b"):
                     return Keyboard.KEY_BACKSPACE
 
@@ -87,6 +118,19 @@ class Keyboard:
 
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    @staticmethod
+    def isPrintable(s:str)->bool:
+        """
+        Checks whether a character is printable.
+
+        Args:
+            s (str): Single character to test.
+
+        Returns:
+            bool: True if character is in the printable ASCII range, otherwise False.
+        """
+        return s in Keyboard.PRINTABLE
 
 class FDInterceptor:
     """
@@ -397,8 +441,27 @@ class Tile:
             row += 1
 
 class InputField:
-    """TODO"""
+    """
+    A fixed-size terminal input widget supporting interactive text editing.
+    """
     def __init__(self, fd:int, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str, border:Border):
+        """
+        Initializes a terminal input widget with a fixed-size grid layout.
+
+        Configures geometry (position, width, height), optional border offsets,
+        prompt rendering, and input capacity limits.
+
+        Args:
+            fd (int): Terminal file descriptor.
+            x (int): Column position.
+            y (int): Row position.
+            width (int): Widget width.
+            height (int): Widget height.
+            name (str): Identifier for the widget.
+            visible (bool): Whether to render immediately.
+            prompt (str): Prompt text displayed above input area.
+            border (Border): Border configuration.
+        """
         self.fd = fd
         self.x = x #col
         self.y = y #row
@@ -406,7 +469,7 @@ class InputField:
         self.height = height 
 
         # text
-        self.rows = height
+        self.rows = self.height
         self.cols = self.width
         self.tx = self.x
         self.ty = self.y
@@ -422,7 +485,7 @@ class InputField:
         self.px = self.tx
         self.py = self.ty
         self.setPrompt(prompt)
-        self.inputMax = self.rows * (self.cols - (len(self.prompt) - 1)) - len(self.prompt[-1]) + 1 # max num of chars for input
+        self.inputMax = (self.rows - len(self.prompt)) * self.cols + (self.cols - (self.px - self.tx)) # max num of chars for input
 
         self.name = name 
         self.visible = visible
@@ -430,6 +493,17 @@ class InputField:
             self.show()
 
     def setPrompt(self, prompt: str):
+        """
+        Formats and stores the prompt into fixed-width terminal rows.
+
+        Splits the prompt by newline and wraps each line to self.cols width,
+        padding rows to full width. Truncates to fit within self.rows.
+
+        Sets:
+            self.prompt: list of fixed-width rows
+            self.py: prompt end row (Y position)
+            self.px: X position after last prompt character
+        """
         self.prompt = []
         promptBuffer = 0
 
@@ -444,6 +518,9 @@ class InputField:
         self.px = self.tx + len(self.prompt[-1]) - promptBuffer
 
     def show(self):
+        """
+        Shows InputField
+        """
         self.drawBorder()
         # render text
         row = self.ty
@@ -452,6 +529,9 @@ class InputField:
             row += 1
 
     def hide(self):
+        """
+        Hides InputField
+        """
         for i, _ in enumerate(self.rows):
             os.write(self.fd, f"\x1b[{self.x};{self.y + i}H{' ' * self.width}".encode())
 
@@ -470,6 +550,14 @@ class InputField:
         os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode())
 
     def updateInput(self, cursorX:int, cursorY:int, text:str):
+        """
+        Clears and overwrites input starting at given cursor position.
+
+        Args:
+            cursorX (int): Current cursor X position in terminal coordinates.
+            cursorY (int): Current cursor Y position in terminal coordinates.
+            text (str): Full input buffer to render.
+        """
         offset = 0
         offset = 0
 
@@ -498,6 +586,15 @@ class InputField:
                 cY += 1
 
     def getInput(self)->str:
+        """
+        Runs an interactive terminal line editor and returns the final input string.
+
+        Supports real-time keyboard navigation and editing within a fixed-width terminal
+        input region starting at (px, py) and spanning a grid of size (rows x cols).
+
+        Returns:
+            str: The final edited input string after Enter is pressed.
+        """
         self.pIndex = 0
         # move cursor
         os.write(self.fd, f"\033[{self.py};{self.px}H".encode())
@@ -513,6 +610,7 @@ class InputField:
             k = Keyboard.getkey()
             # hide cursor
             os.write(self.fd, "\033[?25l".encode())
+
             if k == Keyboard.KEY_LEFT:
                 if cursorY == self.py:
                     # cursorX cannot be < px
@@ -532,6 +630,29 @@ class InputField:
                         cursorX -= 1
                         self.pIndex -= 1
                         os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+
+            elif k == Keyboard.KEY_RIGHT:
+                if self.pIndex < len(s):
+                    self.pIndex += 1
+
+                    idx = self.pIndex
+
+                    firstWidth = self.cols - (self.px - self.tx)
+
+                    if idx < firstWidth:
+                        cursorY = self.py
+                        cursorX = self.px + idx
+                    else:
+                        idx -= firstWidth
+                        cursorY = self.py + 1 + (idx // self.cols)
+                        cursorX = self.tx + (idx % self.cols)
+                    
+                    # adjust if at end of buffer
+                    if self.pIndex == self.inputMax:
+                        cursorX = self.tx + self.cols
+                        cursorY -= 1
+
+                    os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
 
             elif k == Keyboard.KEY_BACKSPACE:
                 if self.pIndex > 0:
@@ -560,33 +681,61 @@ class InputField:
                     # redraw shifted text
                     self.updateInput(cursorX, cursorY, s)
 
-                    # erase trailing character left behind
-                    endX = cursorX
-                    endY = cursorY
+                    # restore cursor
+                    os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
 
-                    remaining = len(s) - self.pIndex
+            elif k == Keyboard.KEY_DELETE:
+                # cannot delete past end of input
+                if self.pIndex < len(s):
+                    # remove char at cursor
+                    del s[self.pIndex]
 
-                    firstWidth = self.cols - (self.px - self.tx)
-
-                    if cursorY == self.py:
-                        remaining -= firstWidth - (cursorX - self.px)
-                    else:
-                        remaining -= self.cols - (cursorX - self.tx)
-
-                    while remaining >= 0:
-                        endX += 1
-
-                        if endX >= self.tx + self.cols:
-                            endX = self.tx
-                            endY += 1
-
-                        remaining -= self.cols
+                    # redraw shifted text starting at current cursor
+                    self.updateInput(cursorX, cursorY, s)
 
                     # restore cursor
                     os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
 
+            elif k == Keyboard.KEY_HOME:
+                self.pIndex = 0
+                cursorX = self.px
+                cursorY = self.py
 
-            elif isinstance(k, str) and len(k) == 1:
+                # move cursor
+                os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+
+            elif k == Keyboard.KEY_END:
+                self.pIndex = len(s)
+
+                total = len(s)
+
+                firstWidth = self.cols - (self.px - self.tx)
+
+                if total < firstWidth:
+                    cursorY = self.py
+                    cursorX = self.px + total
+                else:
+                    total -= firstWidth
+
+                    cursorY = self.py + 1 + (total // self.cols)
+                    cursorX = self.tx + (total % self.cols)
+
+                # adjust if at end of buffer
+                if len(s) == self.inputMax:
+                    cursorX = self.tx + self.cols
+                    cursorY -= 1
+
+                os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+
+            elif k == Keyboard.KEY_ESCAPE:
+                s = []
+                cursorX = self.px
+                cursorY = self.py
+                self.pIndex = 0
+                self.updateInput(self.px, self.py, "")
+                os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+
+            elif Keyboard.isPrintable(k) and len(s) < self.inputMax:
                 # insert char into buffer
                 s.insert(self.pIndex, k)
                 self.pIndex += 1
@@ -596,23 +745,10 @@ class InputField:
 
                 # move cursor
                 cursorX += 1
-                if cursorX > self.tx + self.cols - 1:
+                if (cursorX > self.tx + self.cols - 1) and len(s) < self.inputMax:
                     cursorX = self.tx
                     cursorY += 1
                 os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
-
-
-            # elif key == Keyboard.KEY_RIGHT:
-            #     if self.cursor < len(self.buffer):
-            #         self.cursor += 1
-
-            # elif key == Keyboard.KEY_ENTER:
-            #     value = "".join(self.buffer)
-
-            #     self.buffer.clear()
-            #     self.cursor = 0
-
-            #     return value
 
         # clear input
         self.updateInput(self.px, self.py, "")
