@@ -30,8 +30,8 @@ tt.addTile(x=tt.cols//2,
 
 tt.addInputField(x=1,
                  y=20,
-                 width=30,
-                 height=7,
+                 width=20,
+                 height=5,
                  name="NUMS",
                  visible=True,
                  prompt="Enter a number.\n>>> ",
@@ -40,7 +40,9 @@ tt.addInputField(x=1,
 # tt.stdout_FDI.setDefaultTarget(tt.tiles["TEST"].updateHeader)
 tt.tiles["EVEN"].updateHeader("Even")
 tt.tiles["ODD"].updateHeader("Odd")
-tt.tiles["EVEN"].update(f"{tt.inputFields["NUMS"].inputMax}")
+f = tt.inputFields["NUMS"]
+tt.tiles["ODD"].update(f"{f.inputMax} = ({f.rows} - {len(f.prompt)}) * {f.cols} + ({f.cols} - ({f.px} - {f.tx}))")
+# tt.tiles["ODD"].update("┌─┐ ┌─┐ ┏━┓ ┏━┓ ┏▄┓ ┃█┃\n│▲│ │▼│ ┃▲┃ ┃▼┃  ▀\n└─┘ └─┘ ┗━┛ ┗━┛     ↕")
 while True:
     i = int(tt.inputFields["NUMS"].getInput())
     if i % 2 == 0:
