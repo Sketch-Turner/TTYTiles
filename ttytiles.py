@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 from collections import deque
+import queue
 
 if os.name == "nt":
     import msvcrt
@@ -15,7 +16,6 @@ class Keyboard:
     """
     Small cross-platform keyboard handler for terminal UIs.
     """
-
     KEY_UP = "UP"
     KEY_DOWN = "DOWN"
     KEY_LEFT = "LEFT"
@@ -29,8 +29,29 @@ class Keyboard:
     KEY_TAB = "TAB"
     PRINTABLE = set([chr(c) for c in range(32, 127)])
 
-    @staticmethod
-    def getkey()->str:
+    def __init__(self):
+        self.keystrokes = queue.Queue()
+        self.keyMap = {}
+
+    def getKey(self)->str:
+        return self.keystrokes.get()
+
+    def start(self):
+        threading.Thread(target=self._read, daemon=True).start()
+
+    def mapKey(self, key:str, func):
+        self.keyMap[key] = func
+
+    def _read(self):
+        while True:
+            k = self._readKey()
+            func = self.keyMap.get(k, None)
+            if not func is None:
+                func(k)
+            else:
+                self.keystrokes.put(k)
+
+    def _readKey(self)->str:
         """
         Cross-platform key press handler.
         """
@@ -255,25 +276,62 @@ class Border:
     Generates terminal border strings using predefined box-drawing
     styles or a custom character sequence.
     """
-    NO_BORDER = 0
-    SINGLE_BOX = 1
-    DOUBLE_BOX = 2
-    CUSTOM = 3
-    BORDER_STYLES = {NO_BORDER, SINGLE_BOX, DOUBLE_BOX, CUSTOM}
-    BORDER_CHARS = {NO_BORDER:' ', SINGLE_BOX:'┃', DOUBLE_BOX:'║'}
+    class Charset:
+        CHARSET_LEN = 18
+        def __init__(self, charset:str):
+            if charset is None or len(charset) == 0:
+                charset = " "
+            charset = (charset * ((self.CHARSET_LEN // len(charset)) + 1))[:self.CHARSET_LEN]
+            self.lineH = charset[0]
+            self.lineV = charset[1]
+            self.cornerNW = charset[2]
+            self.cornerNE = charset[3]
+            self.cornerSW = charset[4]
+            self.cornerSE = charset[5]
+            self.junctionVE = charset[6]
+            self.junctionVW = charset[7]
+            self.junctionHS = charset[8]
+            self.junctionHN = charset[9]
+            self.junctionAll = charset[10]
+            self.boxLower = charset[11]
+            self.boxUpper = charset[12]
+            self.boxFull = charset[13]
+            self.arrowUp = charset[14]
+            self.arrowDown = charset[15]
+            self.arrowLeft = charset[16]
+            self.arrowRight = charset[17]
 
-    def __init__(self, style: int = None, char: str = None):
+    NO_BORDER = 0
+    CUSTOM = 1
+    SINGLE_BOX = 2
+    DOUBLE_BOX = 3
+    HEAVY_BOX = 4
+    ASCII = 5
+    BORDER_STYLES = {NO_BORDER, CUSTOM, SINGLE_BOX, DOUBLE_BOX, HEAVY_BOX, ASCII}
+    BORDER_CHARS = {NO_BORDER:  "",
+                    CUSTOM:     "",
+                    SINGLE_BOX: "─│┌┐└┘├┤┬┴┼▄▀█▲▼⯇⯈",
+                    DOUBLE_BOX: "═║╔╗╚╝╠╣╦╩╬▄▀█▲▼⯇⯈",
+                    HEAVY_BOX:  "━┃┏┓┗┛┣┫┳┻╋▄▀█▲▼⯇⯈",
+                    ASCII:      "-|+++++++++###^v<>"
+                    }
+
+    def __init__(self, style: int = None, charset: str = None):
         """
         Border constructor.
 
         Args:
             style (int): Border style.
-            char (str): Custom border character. If this is not None, border.style is set to CUSTOM.
+            charset (str): Custom border character(s). If this is not None, border.style is set to CUSTOM.
         """
         self.style = style if style in self.BORDER_STYLES else self.NO_BORDER
-        if char is not None:
+        if charset is not None:
             self.style = self.CUSTOM
-        self.char = char if char is not None else self.BORDER_CHARS.get(self.style, self.BORDER_CHARS[self.NO_BORDER])
+        else:
+            charset = self.BORDER_CHARS[self.style]
+        self.charset = self.Charset(charset)
+
+
 
     def getTop(self, width:int)->str:
         """
@@ -285,13 +343,7 @@ class Border:
         Returns:
             str: Rendered top border string.
         """
-        if self.style == Border.SINGLE_BOX:
-            return '┏' + '━' * (width - 2) + '┓'
-        elif self.style == Border.DOUBLE_BOX:
-            return '╔' + '═' * (width - 2) + '╗'
-        elif self.style == Border.CUSTOM:
-            return self.char * width
-        return ""
+        return self.charset.cornerNW + self.charset.lineH * (width - 2) + self.charset.cornerNE
 
     def getMiddle(self, width:int):
         """
@@ -303,13 +355,7 @@ class Border:
         Returns:
             str: Rendered middle border string.
         """
-        if self.style == Border.SINGLE_BOX:
-            return '┣' + '━' * (width - 2) + '┫'
-        elif self.style == Border.DOUBLE_BOX:
-            return '╠' + '═' * (width - 2) + '╣'
-        elif self.style == Border.CUSTOM:
-            return self.char * width
-        return ""
+        return self.charset.junctionVE + self.charset.lineH * (width - 2) + self.charset.junctionVW
 
     def getBottom(self, width:int):
         """
@@ -321,13 +367,7 @@ class Border:
         Returns:
             str: Rendered bottom border string.
         """
-        if self.style == Border.SINGLE_BOX:
-            return '┗' + '━' * (width - 2) + '┛'
-        elif self.style == Border.DOUBLE_BOX:
-            return '╚' + '═' * (width - 2) + '╝'
-        elif self.style == Border.CUSTOM:
-            return self.char * width
-        return ""
+        return self.charset.cornerSW + self.charset.lineH * (width - 2) + self.charset.cornerSE
 
 class Tile:
     """
@@ -337,8 +377,11 @@ class Tile:
     TEXT_NOWRAP = 0
     TEXT_WRAP = 1
     TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
+    SIZE_FIXED = 0
+    SIZE_SCROLLING = 1
+    SIZE_MODES = {SIZE_FIXED, SIZE_SCROLLING}
 
-    def __init__(self, fd:int, x:int, y:int, width:int, height:int, name:str, textMode:int, border:Border, header:Header):
+    def __init__(self, fd:int, x:int, y:int, width:int, height:int, name:str, textMode:int, sizeMode:int, border:Border, header:Header):
         """
         Initializes a Tile UI component that represents a bordered
         terminal region with an optional header and scrollable text buffer.
@@ -360,9 +403,26 @@ class Tile:
         self.height = height 
         self.name = name 
         self.textMode = textMode if textMode in self.TEXT_MODES else self.TEXT_NOWRAP
+        self.sizeMode = sizeMode if sizeMode in self.SIZE_MODES else self.SIZE_FIXED
         self.border = border
         self.header = header
         self.fd = fd
+
+        # colors
+        self.colors = {
+            "borderFG": None,
+            "borderBG": None,
+            "headerFG": None,
+            "headerBG": None,
+            "textFG": None,
+            "textBG": None,
+            "borderFG_F": None,
+            "borderBG_F": None,
+            "headerFG_F": None,
+            "headerBG_F": None,
+            "textFG_F": None,
+            "textBG_F": None
+        }
 
         # text
         self.rows = height - self.header.rows
@@ -382,9 +442,28 @@ class Tile:
             self.ty += 1
             self.rows -= 1
 
-        self.text = deque(maxlen=self.rows)
+        if self.sizeMode == self.SIZE_SCROLLING:
+            self.cols -= 2
 
+        if self.sizeMode == self.SIZE_FIXED:
+            self.text = deque(maxlen=self.rows)
+        else:
+            self.text = []
+        self.tIndex = 0
+
+        self.focused = True
         self.drawBorder()
+
+    def setColor(self, fg:tuple, bg:tuple):
+        # fg
+        if not fg is None:
+            os.write(self.fd, f"\033[38;2;{fg[0]};{fg[1]};{fg[2]}m".encode())
+        # bg
+        if not bg is None:
+            os.write(self.fd, f"\033[48;2;{bg[0]};{bg[1]};{bg[2]}m".encode())
+
+    def resetColor(self):
+        os.write(self.fd, f"\033[0m".encode())
 
     def drawBorder(self):
         """
@@ -394,13 +473,49 @@ class Tile:
             - Optional header separator (middle border)
             - Bottom border line
         """
+        if self.focused:
+            self.setColor(self.colors["borderFG_F"], self.colors["borderBG_F"])
+        else:
+            self.setColor(self.colors["borderFG"], self.colors["borderBG"])
+
         for row in range(self.y + 1, self.y + self.height):
-            os.write(self.fd, f"\x1b[{row};{self.x}H{self.border.char}".encode())
-            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 1}H{self.border.char}".encode())
+            os.write(self.fd, f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode())
+            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode())
 
         os.write(self.fd, f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode())
         os.write(self.fd, f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode())
         os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode())
+
+        self.resetColor()
+
+    def drawScrollbar(self):
+        #top
+        os.write(self.fd, f"\x1b[{self.y + self.header.rows + 1};{self.x + self.width - 3}H{self.border.charset.junctionHS + self.border.charset.lineH + self.border.charset.junctionVW}".encode())
+        #middle
+        for row in range(self.y + self.header.rows + 2, self.y + self.height - 1):
+            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 3}H{self.border.charset.lineV + ' ' + self.border.charset.lineV}".encode())
+        #bottom
+        os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x + self.width - 3}H{self.border.charset.junctionHN + self.border.charset.lineH + self.border.charset.cornerSE}".encode())
+
+        #bar
+        bar_offset = (self.rows - 1) * self.tIndex / max(len(self.text) - self.rows, 1)
+
+        if self.border.style == Border.ASCII:
+            bar_offset = round(bar_offset)
+        else:
+            bar_offset = round(bar_offset * 2) / 2
+
+            if bar_offset > (self.rows - 1):
+                bar_offset = self.rows - 1
+
+        bar1 = int(bar_offset)
+        bar2 = int(bar_offset + 0.5)
+        # self.update(f"bar1: {bar1} bar2: {bar2}, tIndex: {self.tIndex}, len: {len(self.text)}")
+        if bar1 == bar2:
+            os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxFull}".encode())
+        else:
+            os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxLower}".encode())
+            os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar2};{self.x + self.width - 2}H{self.border.charset.boxUpper}".encode())
 
     def update(self, text:str):
         """
@@ -411,13 +526,17 @@ class Tile:
             if self.textMode == self.TEXT_NOWRAP:
                 output = line[:self.cols]
                 self.text.append(output + ' ' * (self.cols - len(output)))
+                if len(self.text) > self.rows:
+                    self.tIndex += 1
             elif self.textMode == self.TEXT_WRAP:
                 for i in range(0, len(line), self.cols):
                     output = line[i:i+self.cols]
                     self.text.append(output + ' ' * (self.cols - len(output)))
+                    if len(self.text) > self.rows:
+                        self.tIndex += 1
 
         row = self.ty
-        for line in self.text:
+        for line in list(self.text)[self.tIndex:]:
             os.write(self.fd, f"\x1b[{row};{self.tx}H{line}".encode())
             row += 1
 
@@ -444,7 +563,7 @@ class InputField:
     """
     A fixed-size terminal input widget supporting interactive text editing.
     """
-    def __init__(self, fd:int, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str, border:Border):
+    def __init__(self, fd:int, keyboard:Keyboard, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str, border:Border):
         """
         Initializes a terminal input widget with a fixed-size grid layout.
 
@@ -453,6 +572,7 @@ class InputField:
 
         Args:
             fd (int): Terminal file descriptor.
+            keyboard (Keyboard): Keyboard reader.
             x (int): Column position.
             y (int): Row position.
             width (int): Widget width.
@@ -463,6 +583,7 @@ class InputField:
             border (Border): Border configuration.
         """
         self.fd = fd
+        self.keyboard = keyboard
         self.x = x #col
         self.y = y #row
         self.width = width 
@@ -543,8 +664,8 @@ class InputField:
             - Bottom border line
         """
         for row in range(self.y + 1, self.y + self.height):
-            os.write(self.fd, f"\x1b[{row};{self.x}H{self.border.char}".encode())
-            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 1}H{self.border.char}".encode())
+            os.write(self.fd, f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode())
+            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode())
 
         os.write(self.fd, f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode())
         os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode())
@@ -607,7 +728,7 @@ class InputField:
         while k != Keyboard.KEY_ENTER:
             # show cursor
             os.write(self.fd, "\033[?25h".encode())
-            k = Keyboard.getkey()
+            k = self.keyboard.getKey()
             # hide cursor
             os.write(self.fd, "\033[?25l".encode())
 
@@ -755,7 +876,6 @@ class InputField:
 
         return "".join(s)
 
-
 class TerminalTiler:
     """
     Manages a collection of Tile objects to build a structured
@@ -778,10 +898,17 @@ class TerminalTiler:
             os.system("chcp 65001 > nul") #switch to unicode charset
         self.cols, self.rows = os.get_terminal_size()
         self.tiles = {}
+        self.names = []
+        self.activeTileIndex = -1
         self.inputFields = {}
         self.stdout_FDI = FDInterceptor(1)
+        self.keyboard = Keyboard()
+        self.keyboard.mapKey(Keyboard.KEY_UP, self.handleInput)
+        self.keyboard.mapKey(Keyboard.KEY_DOWN, self.handleInput)
+        self.keyboard.mapKey(Keyboard.KEY_TAB, self.handleInput)
+        self.keyboard.start()
 
-    def addTile(self, x:int, y:int, width:int, height:int, name:str, textMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerMode:int=None, headerBorder:bool=False):
+    def addTile(self, x:int, y:int, width:int, height:int, name:str, textMode:int=None, sizeMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerMode:int=None, headerBorder:bool=False):
         """
         Creates and registers a new Tile in the terminal layout.
 
@@ -797,6 +924,7 @@ class TerminalTiler:
             height (int): Tile height in rows.
             name (str): Unique identifier for the tile.
             textMode (int, optional): TEXT_WRAP or TEXT_NOWRAP.
+            sizeMode (int, optional): SIZE_FIXED or SIZE_SCROLLING.
             borderStyle (int, optional): Border style constant.
             borderChar (str, optional): Custom border character.
             headerLines (int): Number of header rows.
@@ -811,7 +939,11 @@ class TerminalTiler:
         elif y + height >= self.rows:
             raise ValueError("Tile exceeds terminal boundary (Y-axis)")
 
-        self.tiles[name] = Tile(self.stdout_FDI.real_fd, x, y, width, height, name, textMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
+        if len(self.tiles) > 0:
+            self.tiles[self.names[self.activeTileIndex]].focused = False
+        self.tiles[name] = Tile(self.stdout_FDI.real_fd, x, y, width, height, name, textMode, sizeMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
+        self.names.append(name)
+        self.activeTileIndex += 1
 
     def addInputField(self, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str="", borderStyle:int=None, borderChar:str=None):
         """
@@ -841,7 +973,25 @@ class TerminalTiler:
         elif y + height >= self.rows:
             raise ValueError("Tile exceeds terminal boundary (Y-axis)")
 
-        self.inputFields[name] = InputField(self.stdout_FDI.real_fd, x, y, width, height, name, visible, prompt, Border(borderStyle, borderChar))
+        self.inputFields[name] = InputField(self.stdout_FDI.real_fd, self.keyboard, x, y, width, height, name, visible, prompt, Border(borderStyle, borderChar))
+
+    def handleInput(self, key:str):
+        #TODO tab focusing should start with no elements focused
+        #TODO hide/move cursor
+        if key == Keyboard.KEY_TAB:
+            if len(self.tiles) > 0:
+                self.tiles[self.names[self.activeTileIndex]].focused = False
+                self.tiles[self.names[self.activeTileIndex]].drawBorder()
+            self.activeTileIndex += 1
+            self.activeTileIndex %= len(self.tiles)
+            if len(self.tiles) > 0:
+                self.tiles[self.names[self.activeTileIndex]].focused = True
+                self.tiles[self.names[self.activeTileIndex]].drawBorder()
+
+        elif key == Keyboard.KEY_UP:
+            pass
+        elif key == Keyboard.KEY_DOWN:
+            pass
 
     def clearScreen(self):
         """
