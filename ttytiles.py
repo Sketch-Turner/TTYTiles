@@ -303,8 +303,52 @@ class Border:
     styles or a custom character sequence.
     """
     class Charset:
+        """
+        Defines a character set used for drawing UI borders, boxes, and symbols.
+
+        The charset string is expanded or truncated to a fixed length of 18
+        characters and mapped to specific drawing primitives such as lines,
+        corners, junctions, and arrow indicators.
+
+        Attributes:
+            CHARSET_LEN (int): Required length of the internal charset (18 chars).
+
+            lineH (str): Horizontal line character.
+            lineV (str): Vertical line character.
+
+            cornerNW (str): Top-left corner.
+            cornerNE (str): Top-right corner.
+            cornerSW (str): Bottom-left corner.
+            cornerSE (str): Bottom-right corner.
+
+            junctionVE (str): Vertical-then-east junction.
+            junctionVW (str): Vertical-then-west junction.
+            junctionHS (str): Horizontal-then-south junction.
+            junctionHN (str): Horizontal-then-north junction.
+            junctionAll (str): Four-way junction.
+
+            boxLower (str): Lower block character.
+            boxUpper (str): Upper block character.
+            boxFull (str): Full block character.
+
+            arrowUp (str): Up arrow symbol.
+            arrowDown (str): Down arrow symbol.
+            arrowLeft (str): Left arrow symbol.
+            arrowRight (str): Right arrow symbol.
+        """
         CHARSET_LEN = 18
         def __init__(self, charset:str):
+            """
+            Initialize a Charset mapping used for drawing UI elements.
+
+            The input string is expanded or truncated to exactly 18 characters,
+            then each character is assigned to a specific graphical role used
+            for rendering borders, junctions, blocks, and arrows.
+
+            Args:
+                charset (str): A string defining the visual character set.
+                    If None or empty, a single space character is used.
+            """
             if charset is None or len(charset) == 0:
                 charset = " "
             charset = (charset * ((self.CHARSET_LEN // len(charset)) + 1))[:self.CHARSET_LEN]
@@ -356,8 +400,6 @@ class Border:
         else:
             charset = self.BORDER_CHARS[self.style]
         self.charset = self.Charset(charset)
-
-
 
     def getTop(self, width:int)->str:
         """
@@ -436,18 +478,18 @@ class Tile:
 
         # colors
         self.colors = {
-            "borderFG": None,
-            "borderBG": None,
-            "headerFG": None,
-            "headerBG": None,
-            "textFG": None,
-            "textBG": None,
-            "borderFG_F": None,
-            "borderBG_F": None,
-            "headerFG_F": None,
-            "headerBG_F": None,
-            "textFG_F": None,
-            "textBG_F": None
+            "BORDER_FG": None,
+            "BORDER_BG": None,
+            "HEADER_FG": None,
+            "HEADER_BG": None,
+            "TEXT_FG": None,
+            "TEXT_BG": None,
+            "BORDER_FG_F": None,
+            "BORDER_BG_F": None,
+            "HEADER_FG_F": None,
+            "HEADER_BG_F": None,
+            "TEXT_FG_F": None,
+            "TEXT_BG_F": None
         }
 
         # text
@@ -500,9 +542,9 @@ class Tile:
             - Bottom border line
         """
         if self.focused:
-            self.setColor(self.colors["borderFG_F"], self.colors["borderBG_F"])
+            self.setColor(self.colors["BORDER_FG_F"], self.colors["BORDER_BG_F"])
         else:
-            self.setColor(self.colors["borderFG"], self.colors["borderBG"])
+            self.setColor(self.colors["BORDER_FG"], self.colors["BORDER_BG"])
 
         for row in range(self.y + 1, self.y + self.height):
             os.write(self.fd, f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode())
