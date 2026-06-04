@@ -1058,11 +1058,10 @@ class TerminalTiler:
         elif y + height >= self.rows:
             raise ValueError("Tile exceeds terminal boundary (Y-axis)")
 
-        if len(self.tiles) > 0:
-            self.tiles[self.names[self.activeTileIndex]].focused = False
-        self.tiles[name] = Tile(self.stdout_FDI.real_fd, x, y, width, height, name, textMode, sizeMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
+        tile = Tile(self.stdout_FDI.real_fd, x, y, width, height, name, textMode, sizeMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
+        self.tiles[name] = tile
         self.names.append(name)
-        self.activeTileIndex += 1
+        return tile
 
     def addInputField(self, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str="", borderStyle:int=None, borderChar:str=None):
         """
@@ -1092,7 +1091,9 @@ class TerminalTiler:
         elif y + height >= self.rows:
             raise ValueError("Tile exceeds terminal boundary (Y-axis)")
 
-        self.inputFields[name] = InputField(self.stdout_FDI.real_fd, self.keyboard, x, y, width, height, name, visible, prompt, Border(borderStyle, borderChar))
+        field = InputField(self.stdout_FDI.real_fd, self.keyboard, x, y, width, height, name, visible, prompt, Border(borderStyle, borderChar))
+        self.inputFields[name] = field
+        return field
 
     def handleInput(self, key:str):
         #TODO hide/move cursor
