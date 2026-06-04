@@ -1096,7 +1096,10 @@ class TerminalTiler:
         return field
 
     def handleInput(self, key:str):
-        #TODO hide/move cursor
+        """
+        Handles keyboard input for tile navigation and scrolling.
+        """
+        self.hide_cursor()
         if key == Keyboard.KEY_TAB:
             if len(self.tiles) > 0 and self.activeTileIndex >= 0:
                 self.tiles[self.names[self.activeTileIndex]].focused = False
@@ -1108,9 +1111,44 @@ class TerminalTiler:
                 self.tiles[self.names[self.activeTileIndex]].drawBorder()
 
         elif key == Keyboard.KEY_UP:
-            pass
+            tile = self.tiles[self.names[self.activeTileIndex]]
+            top = max(0, min(tile.tIndex, len(tile.text) - tile.rows))
+            if top > 0:
+                tile.tIndex = top - 1
+                # text
+                if tile.focused:
+                    tile.setColor(tile.colors["TEXT_FG_F"], tile.colors["TEXT_BG_F"])
+                else:
+                    tile.setColor(tile.colors["TEXT_FG"], tile.colors["TEXT_BG"])
+                tile.drawText()
+                tile.resetColor()
+                # scrollbar
+                if tile.focused:
+                    tile.setColor(tile.colors["BORDER_FG_F"], tile.colors["BORDER_BG_F"])
+                else:
+                    tile.setColor(tile.colors["BORDER_FG"], tile.colors["BORDER_BG"])
+                tile.drawScrollbar()
+                tile.resetColor()
+
         elif key == Keyboard.KEY_DOWN:
-            pass
+            tile = self.tiles[self.names[self.activeTileIndex]]
+            bottom = max(0, min(tile.tIndex, len(tile.text) - tile.rows))
+            if bottom < len(tile.text) - tile.rows:
+                tile.tIndex = bottom + 1
+                # text
+                if tile.focused:
+                    tile.setColor(tile.colors["TEXT_FG_F"], tile.colors["TEXT_BG_F"])
+                else:
+                    tile.setColor(tile.colors["TEXT_FG"], tile.colors["TEXT_BG"])
+                tile.drawText()
+                tile.resetColor()
+                # scrollbar
+                if tile.focused:
+                    tile.setColor(tile.colors["BORDER_FG_F"], tile.colors["BORDER_BG_F"])
+                else:
+                    tile.setColor(tile.colors["BORDER_FG"], tile.colors["BORDER_BG"])
+                tile.drawScrollbar()
+                tile.resetColor()
 
     def clearScreen(self):
         """
