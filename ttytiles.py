@@ -519,7 +519,7 @@ class Tile:
             self.text = []
         self.tIndex = 0
 
-        self.focused = True
+        self.focused = False
         self.drawBorder()
 
     def setColor(self, fg:tuple, bg:tuple):
@@ -1044,15 +1044,14 @@ class TerminalTiler:
         self.inputFields[name] = InputField(self.stdout_FDI.real_fd, self.keyboard, x, y, width, height, name, visible, prompt, Border(borderStyle, borderChar))
 
     def handleInput(self, key:str):
-        #TODO tab focusing should start with no elements focused
         #TODO hide/move cursor
         if key == Keyboard.KEY_TAB:
-            if len(self.tiles) > 0:
+            if len(self.tiles) > 0 and self.activeTileIndex >= 0:
                 self.tiles[self.names[self.activeTileIndex]].focused = False
                 self.tiles[self.names[self.activeTileIndex]].drawBorder()
-            self.activeTileIndex += 1
-            self.activeTileIndex %= len(self.tiles)
             if len(self.tiles) > 0:
+                self.activeTileIndex += 1
+                self.activeTileIndex %= len(self.tiles)
                 self.tiles[self.names[self.activeTileIndex]].focused = True
                 self.tiles[self.names[self.activeTileIndex]].drawBorder()
 
