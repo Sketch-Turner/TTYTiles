@@ -30,19 +30,45 @@ class Keyboard:
     PRINTABLE = set([chr(c) for c in range(32, 127)])
 
     def __init__(self):
+        """
+        Initialize the keyboard input handler.
+        """
         self.keystrokes = queue.Queue()
         self.keyMap = {}
 
     def getKey(self)->str:
+        """
+        Blocking call that retrieves the next key press from the input queue.
+
+        Returns:
+            str: The next available key from the keystrokes queue.
+        """
         return self.keystrokes.get()
 
     def start(self):
+        """
+        Starts the background keyboard reader thread.
+        """
         threading.Thread(target=self._read, daemon=True).start()
 
     def mapKey(self, key:str, func):
+        """
+        Register a callback function for a specific key.
+        Function is passed the triggering key when called.
+
+        Args:
+            key (str): The key identifier.
+            func (callable): Function to execute when the key is pressed.
+        """
         self.keyMap[key] = func
 
     def _read(self):
+        """
+        Internal keyboard polling loop.
+
+        Continuously reads raw key input and dispatches it to a mapped
+        handler if one exists. Otherwise, the key is queued for later use.
+        """
         while True:
             k = self._readKey()
             func = self.keyMap.get(k, None)
