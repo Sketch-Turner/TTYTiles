@@ -523,6 +523,15 @@ class Tile:
         self.drawBorder()
 
     def setColor(self, fg:tuple, bg:tuple):
+        """
+        Set the terminal foreground and background colors.
+
+        Args:
+            fg (tuple): RGB foreground color as (r, g, b). Each value should be 0-255.
+                If None, the foreground color is left unchanged.
+            bg (tuple): RGB background color as (r, g, b). Each value should be 0-255.
+                If None, the background color is left unchanged.
+        """
         # fg
         if not fg is None:
             os.write(self.fd, f"\033[38;2;{fg[0]};{fg[1]};{fg[2]}m".encode())
@@ -531,6 +540,9 @@ class Tile:
             os.write(self.fd, f"\033[48;2;{bg[0]};{bg[1]};{bg[2]}m".encode())
 
     def resetColor(self):
+        """
+        Reset terminal text formatting and colors to default.
+        """
         os.write(self.fd, f"\033[0m".encode())
 
     def drawBorder(self):
@@ -554,9 +566,16 @@ class Tile:
         os.write(self.fd, f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode())
         os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode())
 
+        if self.sizeMode == self.SIZE_SCROLLING:
+            self.drawScrollbarBorder()
+            self.drawScrollbar()
+
         self.resetColor()
 
-    def drawScrollbar(self):
+    def drawScrollbarBorder(self):
+        """
+        Draws the right-side scrollbar border.
+        """
         #top
         os.write(self.fd, f"\x1b[{self.y + self.header.rows + 1};{self.x + self.width - 3}H{self.border.charset.junctionHS + self.border.charset.lineH + self.border.charset.junctionVW}".encode())
         #middle
@@ -565,8 +584,17 @@ class Tile:
         #bottom
         os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x + self.width - 3}H{self.border.charset.junctionHN + self.border.charset.lineH + self.border.charset.cornerSE}".encode())
 
-        #bar
-        bar_offset = (self.rows - 1) * self.tIndex / max(len(self.text) - self.rows, 1)
+    def drawScrollbar(self):
+        """
+        Renders the scrollbar thumb inside the scrollbar track.
+        """
+        # clear
+        for row in range(self.y + self.header.rows + 2, self.y + self.height - 1):
+            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 2}H ".encode())
+
+        # calc bar position
+        max_scroll = max(len(self.text) - self.rows, 1)
+        bar_offset = self.tIndex * (self.rows - 1) / max_scroll
 
         if self.border.style == Border.ASCII:
             bar_offset = round(bar_offset)
@@ -578,12 +606,23 @@ class Tile:
 
         bar1 = int(bar_offset)
         bar2 = int(bar_offset + 0.5)
-        # self.update(f"bar1: {bar1} bar2: {bar2}, tIndex: {self.tIndex}, len: {len(self.text)}")
+
+        # draw
         if bar1 == bar2:
             os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxFull}".encode())
         else:
             os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxLower}".encode())
             os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar2};{self.x + self.width - 2}H{self.border.charset.boxUpper}".encode())
+
+    def drawText(self):
+        """
+        Renders the visible portion of the text buffer to the terminal.
+        """
+        row = self.ty
+        start = max(0, min(self.tIndex, len(self.text) - self.rows))
+        for line in list(self.text)[start:start + self.rows]:
+            os.write(self.fd, f"\x1b[{row};{self.tx}H{line}".encode())
+            row += 1
 
     def update(self, text:str):
         """
@@ -594,19 +633,31 @@ class Tile:
             if self.textMode == self.TEXT_NOWRAP:
                 output = line[:self.cols]
                 self.text.append(output + ' ' * (self.cols - len(output)))
-                if len(self.text) > self.rows:
-                    self.tIndex += 1
+                self.tIndex = len(self.text) - 1
             elif self.textMode == self.TEXT_WRAP:
                 for i in range(0, len(line), self.cols):
                     output = line[i:i+self.cols]
                     self.text.append(output + ' ' * (self.cols - len(output)))
-                    if len(self.text) > self.rows:
-                        self.tIndex += 1
+                    self.tIndex += len(self.text) - 1
 
-        row = self.ty
-        for line in list(self.text)[self.tIndex:]:
-            os.write(self.fd, f"\x1b[{row};{self.tx}H{line}".encode())
-            row += 1
+        # write text
+        if self.focused:
+            self.setColor(self.colors["TEXT_FG_F"], self.colors["TEXT_BG_F"])
+        else:
+            self.setColor(self.colors["TEXT_FG"], self.colors["TEXT_BG"])
+
+        self.drawText()
+        self.resetColor()
+
+        # update scrollbar position
+        if self.sizeMode == self.SIZE_SCROLLING:
+            if self.focused:
+                self.setColor(self.colors["BORDER_FG_F"], self.colors["BORDER_BG_F"])
+            else:
+                self.setColor(self.colors["BORDER_FG"], self.colors["BORDER_BG"])
+
+            self.drawScrollbar()
+            self.resetColor()
 
     def updateHeader(self, text:str):
         """
