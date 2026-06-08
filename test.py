@@ -1,4 +1,5 @@
 from ttytiles import *
+import time
 
 tt = TerminalTiler()
 tt.clearScreen()
@@ -40,20 +41,34 @@ input_1 = tt.addInputField(x=1,
                  borderStyle=Border.HEAVY_BOX)
 
 tile_even.updateHeader("Even Numbers")
-tile_even.colors["BORDER_FG_F"] = (0, 120, 250)
 tile_odd.updateHeader("Odd Numbers")
+
+tile_even.colors["BORDER_FG_F"] = (0, 120, 250)
+tile_odd.colors["BORDER_FG_F"] = (250, 120, 0)
+input_1.colors["BORDER_FG_F"] = (120, 250, 0)
+
+tile_even.colors["TEXT_FG_F"] = (0, 0, 250)
+tile_odd.colors["TEXT_FG_F"] = (250, 0, 0)
+input_1.colors["TEXT_FG_F"] = (0, 250, 0)
+
 for i in range(10):
     tile_even.update(f"{i*2}")
 
 while True:
-    try:
-        i = int(input_1.getInput())
-        if i % 2 == 0:
-            tile_even.update(f"{i}")
-            tile_odd.update(f"Len: {len(tile_even.text)}, Index: {tile_even.tIndex}")
-        else:
-            tile_odd.update(f"{i}")
-    except:
-        break
+    time.sleep(1)
+    i = int(input_1.getInput())
+    if i % 2 == 0:
+        tile_even.update(f"{i}")
+    else:
+        tile_odd.update(f"{i}")
+    # try:
+    #     i = int(input_1.getInput())
+    #     if i % 2 == 0:
+    #         tile_even.update(f"{i}")
+    #         # tile_odd.update(f"Len: {len(tile_even.text)}, Index: {tile_even.tIndex}")
+    #     else:
+    #         tile_odd.update(f"{i}")
+    # except:
+    #     break
 
 tt.close()
