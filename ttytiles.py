@@ -33,17 +33,7 @@ class Keyboard:
         """
         Initialize the keyboard input handler.
         """
-        self.keystrokes = queue.Queue()
-        self.keyMap = {}
-
-    def getKey(self)->str:
-        """
-        Blocking call that retrieves the next key press from the input queue.
-
-        Returns:
-            str: The next available key from the keystrokes queue.
-        """
-        return self.keystrokes.get()
+        self.subscribers = set()
 
     def start(self):
         """
@@ -51,31 +41,27 @@ class Keyboard:
         """
         threading.Thread(target=self._read, daemon=True).start()
 
-    def mapKey(self, key:str, func):
+    def subscribe(self, func):
         """
-        Register a callback function for a specific key.
-        Function is passed the triggering key when called.
-
+        Register a callback function for key presses.
         Args:
-            key (str): The key identifier.
-            func (callable): Function to execute when the key is pressed.
+            func (callable): Function to execute when a key is pressed.
         """
-        self.keyMap[key] = func
+        self.subscribers.add(func)
 
     def _read(self):
         """
         Internal keyboard polling loop.
 
-        Continuously reads raw key input and dispatches it to a mapped
-        handler if one exists. Otherwise, the key is queued for later use.
+        Continuously reads raw key input and dispatches it to all mapped
+        handlers.
         """
         while True:
             k = self._readKey()
-            func = self.keyMap.get(k, None)
-            if not func is None:
-                func(k)
-            else:
-                self.keystrokes.put(k)
+
+            for func in self.subscribers:
+                if not func is None:
+                    func(k)
 
     def _readKey(self)->str:
         """
@@ -437,6 +423,9 @@ class Border:
         """
         return self.charset.cornerSW + self.charset.lineH * (width - 2) + self.charset.cornerSE
 
+class Element:
+    pass
+
 class Tile:
     """
     A terminal UI region that renders a bordered rectangular tile
@@ -449,7 +438,7 @@ class Tile:
     SIZE_SCROLLING = 1
     SIZE_MODES = {SIZE_FIXED, SIZE_SCROLLING}
 
-    def __init__(self, fd:int, x:int, y:int, width:int, height:int, name:str, textMode:int, sizeMode:int, border:Border, header:Header):
+    def __init__(self, writer_func, x:int, y:int, width:int, height:int, name:str, textMode:int, sizeMode:int, border:Border, header:Header):
         """
         Initializes a Tile UI component that represents a bordered
         terminal region with an optional header and scrollable text buffer.
@@ -474,7 +463,7 @@ class Tile:
         self.sizeMode = sizeMode if sizeMode in self.SIZE_MODES else self.SIZE_FIXED
         self.border = border
         self.header = header
-        self.fd = fd
+        self.write = writer_func
 
         # colors
         self.colors = {
@@ -522,29 +511,6 @@ class Tile:
         self.focused = False
         self.drawBorder()
 
-    def setColor(self, fg:tuple, bg:tuple):
-        """
-        Set the terminal foreground and background colors.
-
-        Args:
-            fg (tuple): RGB foreground color as (r, g, b). Each value should be 0-255.
-                If None, the foreground color is left unchanged.
-            bg (tuple): RGB background color as (r, g, b). Each value should be 0-255.
-                If None, the background color is left unchanged.
-        """
-        # fg
-        if not fg is None:
-            os.write(self.fd, f"\033[38;2;{fg[0]};{fg[1]};{fg[2]}m".encode())
-        # bg
-        if not bg is None:
-            os.write(self.fd, f"\033[48;2;{bg[0]};{bg[1]};{bg[2]}m".encode())
-
-    def resetColor(self):
-        """
-        Reset terminal text formatting and colors to default.
-        """
-        os.write(self.fd, f"\033[0m".encode())
-
     def drawBorder(self):
         """
         Draws:
@@ -554,43 +520,55 @@ class Tile:
             - Bottom border line
         """
         if self.focused:
-            self.setColor(self.colors["BORDER_FG_F"], self.colors["BORDER_BG_F"])
+            color_fg = self.colors["BORDER_FG_F"]
+            color_bg = self.colors["BORDER_BG_F"]
         else:
-            self.setColor(self.colors["BORDER_FG"], self.colors["BORDER_BG"])
+            color_fg = self.colors["BORDER_FG"]
+            color_bg = self.colors["BORDER_BG"]
 
         for row in range(self.y + 1, self.y + self.height):
-            os.write(self.fd, f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode())
-            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode())
+            self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
+            self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
 
-        os.write(self.fd, f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode())
-        os.write(self.fd, f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode())
-        os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode())
+        self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode(), color_fg, color_bg)
+        self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode(), color_fg, color_bg)
+        self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode(), color_fg, color_bg)
 
         if self.sizeMode == self.SIZE_SCROLLING:
             self.drawScrollbarBorder()
             self.drawScrollbar()
 
-        self.resetColor()
-
     def drawScrollbarBorder(self):
         """
         Draws the right-side scrollbar border.
         """
+        if self.focused:
+            color_fg = self.colors["BORDER_FG_F"]
+            color_bg = self.colors["BORDER_BG_F"]
+        else:
+            color_fg = self.colors["BORDER_FG"]
+            color_bg = self.colors["BORDER_BG"]
         #top
-        os.write(self.fd, f"\x1b[{self.y + self.header.rows + 1};{self.x + self.width - 3}H{self.border.charset.junctionHS + self.border.charset.lineH + self.border.charset.junctionVW}".encode())
+        self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x + self.width - 3}H{self.border.charset.junctionHS + self.border.charset.lineH + self.border.charset.junctionVW}".encode(), color_fg, color_bg)
         #middle
         for row in range(self.y + self.header.rows + 2, self.y + self.height - 1):
-            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 3}H{self.border.charset.lineV + ' ' + self.border.charset.lineV}".encode())
+            self.write(f"\x1b[{row};{self.x + self.width - 3}H{self.border.charset.lineV + ' ' + self.border.charset.lineV}".encode(), color_fg, color_bg)
         #bottom
-        os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x + self.width - 3}H{self.border.charset.junctionHN + self.border.charset.lineH + self.border.charset.cornerSE}".encode())
+        self.write(f"\x1b[{self.y + self.height - 1};{self.x + self.width - 3}H{self.border.charset.junctionHN + self.border.charset.lineH + self.border.charset.cornerSE}".encode(), color_fg, color_bg)
 
     def drawScrollbar(self):
         """
         Renders the scrollbar thumb inside the scrollbar track.
         """
+        if self.focused:
+            color_fg = self.colors["BORDER_FG_F"]
+            color_bg = self.colors["BORDER_BG_F"]
+        else:
+            color_fg = self.colors["BORDER_FG"]
+            color_bg = self.colors["BORDER_BG"]
         # clear
         for row in range(self.y + self.header.rows + 2, self.y + self.height - 1):
-            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 2}H ".encode())
+            self.write(f"\x1b[{row};{self.x + self.width - 2}H ".encode(), color_fg, color_bg)
 
         # calc bar position
         max_scroll = max(len(self.text) - self.rows, 1)
@@ -609,19 +587,25 @@ class Tile:
 
         # draw
         if bar1 == bar2:
-            os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxFull}".encode())
+            self.write(f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxFull}".encode(), color_fg, color_bg)
         else:
-            os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxLower}".encode())
-            os.write(self.fd, f"\x1b[{self.y + self.header.rows + 2 + bar2};{self.x + self.width - 2}H{self.border.charset.boxUpper}".encode())
+            self.write(f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxLower}".encode(), color_fg, color_bg)
+            self.write(f"\x1b[{self.y + self.header.rows + 2 + bar2};{self.x + self.width - 2}H{self.border.charset.boxUpper}".encode(), color_fg, color_bg)
 
     def drawText(self):
         """
         Renders the visible portion of the text buffer to the terminal.
         """
+        if self.focused:
+            color_fg = self.colors["BORDER_FG_F"]
+            color_bg = self.colors["BORDER_BG_F"]
+        else:
+            color_fg = self.colors["BORDER_FG"]
+            color_bg = self.colors["BORDER_BG"]
         row = self.ty
         start = max(0, min(self.tIndex, len(self.text) - self.rows))
         for line in list(self.text)[start:start + self.rows]:
-            os.write(self.fd, f"\x1b[{row};{self.tx}H{line}".encode())
+            self.write(f"\x1b[{row};{self.tx}H{line}".encode(), color_fg, color_bg)
             row += 1
 
     def update(self, text:str):
@@ -642,22 +626,24 @@ class Tile:
 
         # write text
         if self.focused:
-            self.setColor(self.colors["TEXT_FG_F"], self.colors["TEXT_BG_F"])
+            color_fg = self.colors["TEXT_FG_F"]
+            color_bg = self.colors["TEXT_BG_F"]
         else:
-            self.setColor(self.colors["TEXT_FG"], self.colors["TEXT_BG"])
+            color_fg = self.colors["TEXT_FG"]
+            color_bg = self.colors["TEXT_BG"]
 
         self.drawText()
-        self.resetColor()
 
         # update scrollbar position
         if self.sizeMode == self.SIZE_SCROLLING:
             if self.focused:
-                self.setColor(self.colors["BORDER_FG_F"], self.colors["BORDER_BG_F"])
+                color_fg = self.colors["BORDER_FG_F"]
+                color_bg = self.colors["BORDER_BG_F"]
             else:
-                self.setColor(self.colors["BORDER_FG"], self.colors["BORDER_BG"])
+                color_fg = self.colors["BORDER_FG"]
+                color_bg = self.colors["BORDER_BG"]
 
             self.drawScrollbar()
-            self.resetColor()
 
     def updateHeader(self, text:str):
         """
@@ -672,17 +658,86 @@ class Tile:
                 for i in range(0, len(line), self.cols):
                     output = line[i:i+self.cols]
                     self.header.text.append(output + ' ' * (self.cols - len(output)))
+        self.drawHeader()
 
+    def drawHeader(self):
+        if self.focused:
+            color_fg = self.colors["HEADER_FG_F"]
+            color_bg = self.colors["HEADER_BG_F"]
+        else:
+            color_fg = self.colors["HEADER_FG"]
+            color_bg = self.colors["HEADER_BG"]
         row = self.hy
         for line in self.header.text:
-            os.write(self.fd, f"\x1b[{row};{self.hx}H{line}".encode())
+            self.write(f"\x1b[{row};{self.hx}H{line}".encode(), color_fg, color_bg)
             row += 1
+
+    def handleInput(self, key:str):
+        if self.sizeMode == self.SIZE_SCROLLING:
+            if key == Keyboard.KEY_UP:
+                top = max(0, min(self.tIndex, len(self.text) - self.rows))
+                if top > 0:
+                    self.tIndex = top - 1
+                    # text
+                    if self.focused:
+                        color_fg = self.colors["TEXT_FG_F"]
+                        color_bg = self.colors["TEXT_BG_F"]
+                    else:
+                        color_fg = self.colors["TEXT_FG"]
+                        color_bg = self.colors["TEXT_BG"]
+                    self.drawText()
+
+                    # scrollbar
+                    if self.focused:
+                        color_fg = self.colors["BORDER_FG_F"]
+                        color_bg = self.colors["BORDER_BG_F"]
+                    else:
+                        color_fg = self.colors["BORDER_FG"]
+                        color_bg = self.colors["BORDER_BG"]
+                    self.drawScrollbar()
+
+            elif key == Keyboard.KEY_DOWN:
+                bottom = max(0, min(self.tIndex, len(self.text) - self.rows))
+                if bottom < len(self.text) - self.rows:
+                    self.tIndex = bottom + 1
+                    # text
+                    if self.focused:
+                        color_fg = self.colors["TEXT_FG_F"]
+                        color_bg = self.colors["TEXT_BG_F"]
+                    else:
+                        color_fg = self.colors["TEXT_FG"]
+                        color_bg = self.colors["TEXT_BG"]
+                    self.drawText()
+
+                    # scrollbar
+                    if self.focused:
+                        color_fg = self.colors["BORDER_FG_F"]
+                        color_bg = self.colors["BORDER_BG_F"]
+                    else:
+                        color_fg = self.colors["BORDER_FG"]
+                        color_bg = self.colors["BORDER_BG"]
+                    self.drawScrollbar()
+
+    def show(self):
+        """
+        Shows Tile
+        """
+        self.drawBorder()
+        self.drawHeader()
+        self.drawText()
+
+    def hide(self):
+        """
+        Hides Tile
+        """
+        for i in range(self.height):
+            self.write(f"\x1b[{self.y + i};{self.x}H{' ' * self.width}".encode())
 
 class InputField:
     """
     A fixed-size terminal input widget supporting interactive text editing.
     """
-    def __init__(self, fd:int, keyboard:Keyboard, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str, border:Border):
+    def __init__(self, write_func, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str, border:Border):
         """
         Initializes a terminal input widget with a fixed-size grid layout.
 
@@ -691,7 +746,6 @@ class InputField:
 
         Args:
             fd (int): Terminal file descriptor.
-            keyboard (Keyboard): Keyboard reader.
             x (int): Column position.
             y (int): Row position.
             width (int): Widget width.
@@ -701,12 +755,27 @@ class InputField:
             prompt (str): Prompt text displayed above input area.
             border (Border): Border configuration.
         """
-        self.fd = fd
-        self.keyboard = keyboard
+        self.write = write_func
         self.x = x #col
         self.y = y #row
         self.width = width 
         self.height = height 
+
+        # colors
+        self.colors = {
+            "BORDER_FG": None,
+            "BORDER_BG": None,
+            "INPUT_FG": None,
+            "INPUT_BG": None,
+            "TEXT_FG": None,
+            "TEXT_BG": None,
+            "BORDER_FG_F": None,
+            "BORDER_BG_F": None,
+            "INPUT_FG_F": None,
+            "INPUT_BG_F": None,
+            "TEXT_FG_F": None,
+            "TEXT_BG_F": None
+        }
 
         # text
         self.rows = self.height
@@ -725,10 +794,15 @@ class InputField:
         self.px = self.tx
         self.py = self.ty
         self.setPrompt(prompt)
-        self.inputMax = (self.rows - len(self.prompt)) * self.cols + (self.cols - (self.px - self.tx)) # max num of chars for input
+        self.cursorX = self.px
+        self.cursorY = self.py
+        self.bufferMax = (self.rows - len(self.prompt)) * self.cols + (self.cols - (self.px - self.tx)) # max num of chars for input
 
         self.name = name 
+        self.buffer = []
+        self.input = queue.Queue()
         self.visible = visible
+        self.focused = False
         if self.visible:
             self.show()
 
@@ -762,18 +836,27 @@ class InputField:
         Shows InputField
         """
         self.drawBorder()
+        self.drawText()
+
+    def drawText(self):
         # render text
+        if self.focused:
+            color_fg = self.colors["TEXT_FG_F"]
+            color_bg = self.colors["TEXT_BG_F"]
+        else:
+            color_fg = self.colors["TEXT_FG"]
+            color_bg = self.colors["TEXT_BG"]
         row = self.ty
         for line in self.prompt:
-            os.write(self.fd, f"\x1b[{row};{self.tx}H{line}".encode())
+            self.write(f"\x1b[{row};{self.tx}H{line}".encode(), color_fg, color_bg)
             row += 1
 
     def hide(self):
         """
         Hides InputField
         """
-        for i, _ in enumerate(self.rows):
-            os.write(self.fd, f"\x1b[{self.x};{self.y + i}H{' ' * self.width}".encode())
+        for i in range(self.height):
+            self.write(f"\x1b[{self.y + i};{self.x}H{' ' * self.width}".encode())
 
     def drawBorder(self):
         """
@@ -782,14 +865,21 @@ class InputField:
             - Top border line
             - Bottom border line
         """
+        if self.focused:
+            color_fg = self.colors["BORDER_FG_F"]
+            color_bg = self.colors["BORDER_BG_F"]
+        else:
+            color_fg = self.colors["BORDER_FG"]
+            color_bg = self.colors["BORDER_BG"]
+
         for row in range(self.y + 1, self.y + self.height):
-            os.write(self.fd, f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode())
-            os.write(self.fd, f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode())
+            self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
+            self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
 
-        os.write(self.fd, f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode())
-        os.write(self.fd, f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode())
+        self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode(), color_fg, color_bg)
+        self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode(), color_fg, color_bg)
 
-    def updateInput(self, cursorX:int, cursorY:int, text:str):
+    def drawInput(self):
         """
         Clears and overwrites input starting at given cursor position.
 
@@ -801,24 +891,31 @@ class InputField:
         offset = 0
         offset = 0
 
-        if cursorY == self.py:
+        if self.cursorY == self.py:
             # first row
-            offset += cursorX - self.px
+            offset += self.cursorX - self.px
         else:
             # usable chars on first row
             offset += self.cols - (self.px - self.tx)
 
             # full wrapped rows
-            offset += (cursorY - self.py - 1) * self.cols
+            offset += (self.cursorY - self.py - 1) * self.cols
 
             # current row offset
-            offset += cursorX - self.tx
+            offset += self.cursorX - self.tx
 
         # write
-        cX, cY = cursorX, cursorY
-        t = ''.join(text) + ' ' * (self.inputMax - len(text))
+        if self.focused:
+            color_fg = self.colors["INPUT_FG_F"]
+            color_bg = self.colors["INPUT_BG_F"]
+        else:
+            color_fg = self.colors["INPUT_FG"]
+            color_bg = self.colors["INPUT_BG"]
+
+        cX, cY = self.cursorX, self.cursorY
+        t = ''.join(self.buffer) + ' ' * (self.bufferMax - len(self.buffer))
         for c in t[offset:]:
-            os.write(self.fd, f"\033[{cY};{cX}H{c}".encode())
+            self.write(f"\033[{cY};{cX}H{c}".encode(), color_fg, color_bg)
             cX += 1
 
             if cX >= self.tx + self.cols:
@@ -835,165 +932,175 @@ class InputField:
         Returns:
             str: The final edited input string after Enter is pressed.
         """
-        self.pIndex = 0
-        # move cursor
-        os.write(self.fd, f"\033[{self.py};{self.px}H".encode())
-        cursorX = self.px
-        cursorY = self.py
+        return self.input.get()
 
-        # handle keyboard input
-        s = []
-        k = None
-        while k != Keyboard.KEY_ENTER:
-            # show cursor
-            os.write(self.fd, "\033[?25h".encode())
-            k = self.keyboard.getKey()
-            # hide cursor
-            os.write(self.fd, "\033[?25l".encode())
-
-            if k == Keyboard.KEY_LEFT:
-                if cursorY == self.py:
-                    # cursorX cannot be < px
-                    if cursorX > self.px:
-                        cursorX -= 1
-                        self.pIndex -= 1
-                        os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
-                else:
-                    # cursorX cannot be < tx
-                    if cursorX == self.tx:
-                        # move cursor to previous line
-                        cursorY -= 1
-                        cursorX = self.tx + self.cols - 1
-                        self.pIndex -= 1
-                        os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
-                    else:
-                        cursorX -= 1
-                        self.pIndex -= 1
-                        os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
-
-            elif k == Keyboard.KEY_RIGHT:
-                if self.pIndex < len(s):
-                    self.pIndex += 1
-
-                    idx = self.pIndex
-
-                    firstWidth = self.cols - (self.px - self.tx)
-
-                    if idx < firstWidth:
-                        cursorY = self.py
-                        cursorX = self.px + idx
-                    else:
-                        idx -= firstWidth
-                        cursorY = self.py + 1 + (idx // self.cols)
-                        cursorX = self.tx + (idx % self.cols)
-                    
-                    # adjust if at end of buffer
-                    if self.pIndex == self.inputMax:
-                        cursorX = self.tx + self.cols
-                        cursorY -= 1
-
-                    os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
-
-            elif k == Keyboard.KEY_BACKSPACE:
-                if self.pIndex > 0:
-                    # move logical cursor backward
+    def handleInput(self, key:str):
+        if key == Keyboard.KEY_LEFT:
+            if self.cursorY == self.py:
+                # self.cursorX cannot be < px
+                if self.cursorX > self.px:
+                    self.cursorX -= 1
                     self.pIndex -= 1
+                    self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+            else:
+                # self.cursorX cannot be < tx
+                if self.cursorX == self.tx:
+                    # move cursor to previous line
+                    self.cursorY -= 1
+                    self.cursorX = self.tx + self.cols - 1
+                    self.pIndex -= 1
+                    self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+                else:
+                    self.cursorX -= 1
+                    self.pIndex -= 1
+                    self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
-                    # move visual cursor backward
-                    if cursorY == self.py:
-                        if cursorX > self.px:
-                            cursorX -= 1
-                    else:
-                        if cursorX == self.tx:
-                            cursorY -= 1
+        elif key == Keyboard.KEY_RIGHT:
+            if self.pIndex < len(self.buffer):
+                self.pIndex += 1
 
-                            # previous row may be prompt row
-                            if cursorY == self.py:
-                                cursorX = self.px + (self.cols - (self.px - self.tx)) - 1
-                            else:
-                                cursorX = self.tx + self.cols - 1
-                        else:
-                            cursorX -= 1
-
-                    # remove char from buffer
-                    del s[self.pIndex]
-
-                    # redraw shifted text
-                    self.updateInput(cursorX, cursorY, s)
-
-                    # restore cursor
-                    os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
-
-            elif k == Keyboard.KEY_DELETE:
-                # cannot delete past end of input
-                if self.pIndex < len(s):
-                    # remove char at cursor
-                    del s[self.pIndex]
-
-                    # redraw shifted text starting at current cursor
-                    self.updateInput(cursorX, cursorY, s)
-
-                    # restore cursor
-                    os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
-
-            elif k == Keyboard.KEY_HOME:
-                self.pIndex = 0
-                cursorX = self.px
-                cursorY = self.py
-
-                # move cursor
-                os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
-
-            elif k == Keyboard.KEY_END:
-                self.pIndex = len(s)
-
-                total = len(s)
+                idx = self.pIndex
 
                 firstWidth = self.cols - (self.px - self.tx)
 
-                if total < firstWidth:
-                    cursorY = self.py
-                    cursorX = self.px + total
+                if idx < firstWidth:
+                    self.cursorY = self.py
+                    self.cursorX = self.px + idx
                 else:
-                    total -= firstWidth
-
-                    cursorY = self.py + 1 + (total // self.cols)
-                    cursorX = self.tx + (total % self.cols)
-
+                    idx -= firstWidth
+                    self.cursorY = self.py + 1 + (idx // self.cols)
+                    self.cursorX = self.tx + (idx % self.cols)
+                
                 # adjust if at end of buffer
-                if len(s) == self.inputMax:
-                    cursorX = self.tx + self.cols
-                    cursorY -= 1
+                if self.pIndex == self.bufferMax:
+                    self.cursorX = self.tx + self.cols
+                    self.cursorY -= 1
 
-                os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+                self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
-            elif k == Keyboard.KEY_ESCAPE:
-                s = []
-                cursorX = self.px
-                cursorY = self.py
-                self.pIndex = 0
-                self.updateInput(self.px, self.py, "")
-                os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+        elif key == Keyboard.KEY_BACKSPACE:
+            if self.pIndex > 0:
+                # move logical cursor backward
+                self.pIndex -= 1
 
-            elif Keyboard.isPrintable(k) and len(s) < self.inputMax:
-                # insert char into buffer
-                s.insert(self.pIndex, k)
-                self.pIndex += 1
+                # move visual cursor backward
+                if self.cursorY == self.py:
+                    if self.cursorX > self.px:
+                        self.cursorX -= 1
+                else:
+                    if self.cursorX == self.tx:
+                        self.cursorY -= 1
 
-                # write
-                self.updateInput(cursorX, cursorY, s)
+                        # previous row may be prompt row
+                        if self.cursorY == self.py:
+                            self.cursorX = self.px + (self.cols - (self.px - self.tx)) - 1
+                        else:
+                            self.cursorX = self.tx + self.cols - 1
+                    else:
+                        self.cursorX -= 1
 
-                # move cursor
-                cursorX += 1
-                if (cursorX > self.tx + self.cols - 1) and len(s) < self.inputMax:
-                    cursorX = self.tx
-                    cursorY += 1
-                os.write(self.fd, f"\033[{cursorY};{cursorX}H".encode())
+                # remove char from buffer
+                del s[self.pIndex]
 
-        # clear input
-        self.updateInput(self.px, self.py, "")
+                # redraw shifted text
+                self.updateInput(self.cursorX, self.cursorY, s)
 
-        return "".join(s)
+                # restore cursor
+                self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+        elif key == Keyboard.KEY_DELETE:
+            # cannot delete past end of input
+            if self.pIndex < len(s):
+                # remove char at cursor
+                del s[self.pIndex]
+
+                # redraw shifted text starting at current cursor
+                self.updateInput(self.cursorX, self.cursorY, s)
+
+                # restore cursor
+                self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+        elif key == Keyboard.KEY_HOME:
+            self.pIndex = 0
+            self.cursorX = self.px
+            self.cursorY = self.py
+
+            # move cursor
+            self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+        elif key == Keyboard.KEY_END:
+            self.pIndex = len(s)
+
+            total = len(s)
+
+            firstWidth = self.cols - (self.px - self.tx)
+
+            if total < firstWidth:
+                self.cursorY = self.py
+                self.cursorX = self.px + total
+            else:
+                total -= firstWidth
+
+                self.cursorY = self.py + 1 + (total // self.cols)
+                self.cursorX = self.tx + (total % self.cols)
+
+            # adjust if at end of buffer
+            if len(s) == self.bufferMax:
+                self.cursorX = self.tx + self.cols
+                self.cursorY -= 1
+
+            self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+        elif key == Keyboard.KEY_ESCAPE:
+            s = []
+            self.cursorX = self.px
+            self.cursorY = self.py
+            self.pIndex = 0
+            self.updateInput(self.px, self.py, "")
+            self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+        elif key == Keyboard.KEY_ENTER:
+            self.input.put("".join(self.buffer))
+            self.buffer = []
+            self.cursorX = self.px
+            self.cursorY = self.py
+            # clear input
+            self.drawInput()
+
+                    # self.pIndex = 0
+        # # move cursor
+        # self.write(f"\033[{self.py};{self.px}H".encode())
+        # self.cursorX = self.px
+        # self.cursorY = self.py
+
+        # # handle keyboard input
+        # s = []
+        # k = None
+        # while k != Keyboard.KEY_ENTER:
+        #     # show cursor
+        #     self.write("\033[?25h".encode())
+        #     k = self.keyboard.getKey()
+        #     # hide cursor
+        #     self.write("\033[?25l".encode())
+        # # clear input
+        # self.updateInput(self.px, self.py, "")
+
+        # return "".join(s)
+
+        elif Keyboard.isPrintable(key) and len(self.buffer) < self.bufferMax:
+            # insert char into buffer
+            self.buffer.insert(self.pIndex, key)
+            self.pIndex += 1
+
+            # write
+            self.drawInput()
+
+            # move cursor
+            self.cursorX += 1
+            if (self.cursorX > self.tx + self.cols - 1) and len(self.buffer) < self.bufferMax:
+                self.cursorX = self.tx
+                self.cursorY += 1
+            self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
 class TerminalTiler:
     """
@@ -1015,16 +1122,15 @@ class TerminalTiler:
         """
         if os.name == "nt":
             os.system("chcp 65001 > nul") #switch to unicode charset
+        self.lock = threading.Lock()
         self.cols, self.rows = os.get_terminal_size()
         self.tiles = {}
-        self.names = []
-        self.activeTileIndex = -1
         self.inputFields = {}
+        self.focusedIndex = -1 # index of active element
+        self.elements = [] # holds all elements
         self.stdout_FDI = FDInterceptor(1)
         self.keyboard = Keyboard()
-        self.keyboard.mapKey(Keyboard.KEY_UP, self.handleInput)
-        self.keyboard.mapKey(Keyboard.KEY_DOWN, self.handleInput)
-        self.keyboard.mapKey(Keyboard.KEY_TAB, self.handleInput)
+        self.keyboard.subscribe(self.handleInput)
         self.keyboard.start()
 
     def addTile(self, x:int, y:int, width:int, height:int, name:str, textMode:int=None, sizeMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerMode:int=None, headerBorder:bool=False):
@@ -1058,9 +1164,9 @@ class TerminalTiler:
         elif y + height >= self.rows:
             raise ValueError("Tile exceeds terminal boundary (Y-axis)")
 
-        tile = Tile(self.stdout_FDI.real_fd, x, y, width, height, name, textMode, sizeMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
+        tile = Tile(self.write, x, y, width, height, name, textMode, sizeMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
         self.tiles[name] = tile
-        self.names.append(name)
+        self.elements.append(tile)
         return tile
 
     def addInputField(self, x:int, y:int, width:int, height:int, name:str, visible:bool, prompt:str="", borderStyle:int=None, borderChar:str=None):
@@ -1091,8 +1197,9 @@ class TerminalTiler:
         elif y + height >= self.rows:
             raise ValueError("Tile exceeds terminal boundary (Y-axis)")
 
-        field = InputField(self.stdout_FDI.real_fd, self.keyboard, x, y, width, height, name, visible, prompt, Border(borderStyle, borderChar))
+        field = InputField(self.write, x, y, width, height, name, visible, prompt, Border(borderStyle, borderChar))
         self.inputFields[name] = field
+        self.elements.append(field)
         return field
 
     def handleInput(self, key:str):
@@ -1101,72 +1208,52 @@ class TerminalTiler:
         """
         self.hide_cursor()
         if key == Keyboard.KEY_TAB:
-            if len(self.tiles) > 0 and self.activeTileIndex >= 0:
-                self.tiles[self.names[self.activeTileIndex]].focused = False
-                self.tiles[self.names[self.activeTileIndex]].drawBorder()
-            if len(self.tiles) > 0:
-                self.activeTileIndex += 1
-                self.activeTileIndex %= len(self.tiles)
-                self.tiles[self.names[self.activeTileIndex]].focused = True
-                self.tiles[self.names[self.activeTileIndex]].drawBorder()
+            if len(self.elements) > 0 and self.focusedIndex >= 0:
+                self.elements[self.focusedIndex].focused = False
+                self.elements[self.focusedIndex].show()
+            if len(self.elements) > 0:
+                self.focusedIndex += 1
+                self.focusedIndex %= len(self.elements)
+                self.elements[self.focusedIndex].focused = True
+                self.elements[self.focusedIndex].show()
 
-        elif key == Keyboard.KEY_UP:
-            tile = self.tiles[self.names[self.activeTileIndex]]
-            top = max(0, min(tile.tIndex, len(tile.text) - tile.rows))
-            if top > 0:
-                tile.tIndex = top - 1
-                # text
-                if tile.focused:
-                    tile.setColor(tile.colors["TEXT_FG_F"], tile.colors["TEXT_BG_F"])
-                else:
-                    tile.setColor(tile.colors["TEXT_FG"], tile.colors["TEXT_BG"])
-                tile.drawText()
-                tile.resetColor()
-                # scrollbar
-                if tile.focused:
-                    tile.setColor(tile.colors["BORDER_FG_F"], tile.colors["BORDER_BG_F"])
-                else:
-                    tile.setColor(tile.colors["BORDER_FG"], tile.colors["BORDER_BG"])
-                tile.drawScrollbar()
-                tile.resetColor()
-
-        elif key == Keyboard.KEY_DOWN:
-            tile = self.tiles[self.names[self.activeTileIndex]]
-            bottom = max(0, min(tile.tIndex, len(tile.text) - tile.rows))
-            if bottom < len(tile.text) - tile.rows:
-                tile.tIndex = bottom + 1
-                # text
-                if tile.focused:
-                    tile.setColor(tile.colors["TEXT_FG_F"], tile.colors["TEXT_BG_F"])
-                else:
-                    tile.setColor(tile.colors["TEXT_FG"], tile.colors["TEXT_BG"])
-                tile.drawText()
-                tile.resetColor()
-                # scrollbar
-                if tile.focused:
-                    tile.setColor(tile.colors["BORDER_FG_F"], tile.colors["BORDER_BG_F"])
-                else:
-                    tile.setColor(tile.colors["BORDER_FG"], tile.colors["BORDER_BG"])
-                tile.drawScrollbar()
-                tile.resetColor()
+        else:
+            # send to element
+            if self.focusedIndex >= 0:
+                self.elements[self.focusedIndex].handleInput(key)
 
     def clearScreen(self):
         """
         Clears terminal screen.
         """
-        os.write(self.stdout_FDI.real_fd, "\x1b[2J".encode())
+        self.write("\x1b[2J".encode())
 
     def hide_cursor(self):
         """
         Hides cursor.
         """
-        os.write(self.stdout_FDI.real_fd, "\033[?25l".encode())
+        self.write("\033[?25l".encode())
 
     def show_cursor(self):
         """
         Shows cursor.
         """
-        os.write(self.stdout_FDI.real_fd, "\033[?25h".encode())
+        self.write("\033[?25h".encode())
+
+    def write(self, text:bytes, fg_color:tuple[int, int, int]=None, bg_color:tuple[int, int, int]=None):
+        with self.lock:
+            # fg
+            if not fg_color is None:
+                os.write(self.stdout_FDI.real_fd, f"\033[38;2;{fg_color[0]};{fg_color[1]};{fg_color[2]}m".encode())
+            # bg
+            if not bg_color is None:
+                os.write(self.stdout_FDI.real_fd, f"\033[48;2;{bg_color[0]};{bg_color[1]};{bg_color[2]}m".encode())
+
+            # write
+            os.write(self.stdout_FDI.real_fd, text)
+
+            # reset color
+            os.write(self.stdout_FDI.real_fd, f"\033[0m".encode())
 
     def close(self):
         """
@@ -1177,7 +1264,7 @@ class TerminalTiler:
         visibility, and shuts down the stdout FDInterceptor cleanly.
         """
         maxY = max(tile.y + tile.height for tile in [*self.tiles.values(), *self.inputFields.values()])
-        os.write(self.stdout_FDI.real_fd, f"\x1b[{maxY};{1}H".encode())
+        self.write(f"\x1b[{maxY};{1}H".encode())
 
         self.show_cursor()
         self.stdout_FDI.close()
