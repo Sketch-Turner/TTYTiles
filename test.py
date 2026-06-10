@@ -2,8 +2,6 @@ from ttytiles import *
 import time
 
 tt = TerminalTiler()
-tt.clearScreen()
-tt.hide_cursor()
 
 tile_even = tt.addTile(x=1,
            y=1,
