@@ -531,7 +531,8 @@ class Tile:
             self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
 
         self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode(), color_fg, color_bg)
-        self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode(), color_fg, color_bg)
+        if self.header.hasBorder:
+            self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode(), color_fg, color_bg)
         self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode(), color_fg, color_bg)
 
         if self.sizeMode == self.SIZE_SCROLLING:
@@ -548,13 +549,24 @@ class Tile:
         else:
             color_fg = self.colors["BORDER_FG"]
             color_bg = self.colors["BORDER_BG"]
+
         #top
-        self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x + self.width - 3}H{self.border.charset.junctionHS + self.border.charset.lineH + self.border.charset.junctionVW}".encode(), color_fg, color_bg)
+        header_height = self.header.rows
+        cornerTop = self.border.charset.cornerNE
+        if self.header.hasBorder:
+            header_height += 1
+            cornerTop = self.border.charset.junctionVW
+        self.write(f"\x1b[{self.y + header_height};{self.x + self.width - 3}H{self.border.charset.junctionHS + self.border.charset.lineH + cornerTop}".encode(), color_fg, color_bg)
+
         #middle
-        for row in range(self.y + self.header.rows + 2, self.y + self.height - 1):
+        for row in range(self.y + header_height + 1, self.y + self.height - 1):
             self.write(f"\x1b[{row};{self.x + self.width - 3}H{self.border.charset.lineV + ' ' + self.border.charset.lineV}".encode(), color_fg, color_bg)
+
         #bottom
-        self.write(f"\x1b[{self.y + self.height - 1};{self.x + self.width - 3}H{self.border.charset.junctionHN + self.border.charset.lineH + self.border.charset.cornerSE}".encode(), color_fg, color_bg)
+        cornerBottom = self.border.charset.cornerSW
+        if self.border.style != Border.NO_BORDER:
+            cornerBottom = self.border.charset.junctionHN
+        self.write(f"\x1b[{self.y + self.height - 1};{self.x + self.width - 3}H{cornerBottom + self.border.charset.lineH + self.border.charset.cornerSE}".encode(), color_fg, color_bg)
 
     def drawScrollbar(self):
         """
@@ -566,8 +578,14 @@ class Tile:
         else:
             color_fg = self.colors["BORDER_FG"]
             color_bg = self.colors["BORDER_BG"]
+
+        bar_top = self.y + self.header.rows
+        if self.border.style != Border.NO_BORDER:
+            bar_top += 1
+        if self.header.hasBorder:
+            bar_top += 1
         # clear
-        for row in range(self.y + self.header.rows + 2, self.y + self.height - 1):
+        for row in range(bar_top, self.y + self.height - 1):
             self.write(f"\x1b[{row};{self.x + self.width - 2}H ".encode(), color_fg, color_bg)
 
         # calc bar position
@@ -579,18 +597,18 @@ class Tile:
         else:
             bar_offset = round(bar_offset * 2) / 2
 
-            if bar_offset > (self.rows - 1):
-                bar_offset = self.rows - 1
+        if bar_offset > (self.rows - 1):
+            bar_offset = self.rows - 1
 
         bar1 = int(bar_offset)
         bar2 = int(bar_offset + 0.5)
 
         # draw
         if bar1 == bar2:
-            self.write(f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxFull}".encode(), color_fg, color_bg)
+            self.write(f"\x1b[{bar_top + bar1};{self.x + self.width - 2}H{self.border.charset.boxFull}".encode(), color_fg, color_bg)
         else:
-            self.write(f"\x1b[{self.y + self.header.rows + 2 + bar1};{self.x + self.width - 2}H{self.border.charset.boxLower}".encode(), color_fg, color_bg)
-            self.write(f"\x1b[{self.y + self.header.rows + 2 + bar2};{self.x + self.width - 2}H{self.border.charset.boxUpper}".encode(), color_fg, color_bg)
+            self.write(f"\x1b[{bar_top + bar1};{self.x + self.width - 2}H{self.border.charset.boxLower}".encode(), color_fg, color_bg)
+            self.write(f"\x1b[{bar_top + bar2};{self.x + self.width - 2}H{self.border.charset.boxUpper}".encode(), color_fg, color_bg)
 
     def drawText(self):
         """
@@ -722,6 +740,8 @@ class Tile:
         """
         Shows Tile
         """
+        # hide cursor
+        self.write("\033[?25l".encode())
         self.drawBorder()
         self.drawHeader()
         self.drawText()
@@ -730,6 +750,8 @@ class Tile:
         """
         Hides Tile
         """
+        # hide cursor
+        self.write("\033[?25l".encode())
         for i in range(self.height):
             self.write(f"\x1b[{self.y + i};{self.x}H{' ' * self.width}".encode())
 
@@ -835,8 +857,20 @@ class InputField:
         """
         Shows InputField
         """
+        # hide cursor
+        self.write("\033[?25l".encode())
         self.drawBorder()
         self.drawText()
+        cX, cY = self.cursorX, self.cursorY
+        self.cursorX = self.px
+        self.cursorY = self.py
+        self.drawInput()
+        # move cursor
+        self.cursorX = cX
+        self.cursorY = cY
+        self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+        # show cursor
+        self.write("\033[?25h".encode())
 
     def drawText(self):
         # render text
@@ -888,9 +922,12 @@ class InputField:
             cursorY (int): Current cursor Y position in terminal coordinates.
             text (str): Full input buffer to render.
         """
-        offset = 0
-        offset = 0
+        # normalize cursor
+        if self.cursorX >= self.tx + self.cols:
+            self.cursorX = self.tx
+            self.cursorY += 1
 
+        offset = 0
         if self.cursorY == self.py:
             # first row
             offset += self.cursorX - self.px
@@ -913,6 +950,7 @@ class InputField:
             color_bg = self.colors["INPUT_BG"]
 
         cX, cY = self.cursorX, self.cursorY
+
         t = ''.join(self.buffer) + ' ' * (self.bufferMax - len(self.buffer))
         for c in t[offset:]:
             self.write(f"\033[{cY};{cX}H{c}".encode(), color_fg, color_bg)
