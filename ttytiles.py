@@ -935,6 +935,9 @@ class InputField:
         return self.input.get()
 
     def handleInput(self, key:str):
+        # hide cursor
+        self.write("\033[?25l".encode())
+
         if key == Keyboard.KEY_LEFT:
             if self.cursorY == self.py:
                 # self.cursorX cannot be < px
@@ -1000,22 +1003,22 @@ class InputField:
                         self.cursorX -= 1
 
                 # remove char from buffer
-                del s[self.pIndex]
+                del self.buffer[self.pIndex]
 
                 # redraw shifted text
-                self.updateInput(self.cursorX, self.cursorY, s)
+                self.drawInput()
 
                 # restore cursor
                 self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
         elif key == Keyboard.KEY_DELETE:
             # cannot delete past end of input
-            if self.pIndex < len(s):
+            if self.pIndex < len(self.buffer):
                 # remove char at cursor
-                del s[self.pIndex]
+                del self.buffer[self.pIndex]
 
                 # redraw shifted text starting at current cursor
-                self.updateInput(self.cursorX, self.cursorY, s)
+                self.drawInput()
 
                 # restore cursor
                 self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
@@ -1029,9 +1032,9 @@ class InputField:
             self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
         elif key == Keyboard.KEY_END:
-            self.pIndex = len(s)
+            self.pIndex = len(self.buffer)
 
-            total = len(s)
+            total = len(self.buffer)
 
             firstWidth = self.cols - (self.px - self.tx)
 
@@ -1045,47 +1048,31 @@ class InputField:
                 self.cursorX = self.tx + (total % self.cols)
 
             # adjust if at end of buffer
-            if len(s) == self.bufferMax:
+            if len(self.buffer) == self.bufferMax:
                 self.cursorX = self.tx + self.cols
                 self.cursorY -= 1
 
             self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
         elif key == Keyboard.KEY_ESCAPE:
-            s = []
+            self.buffer = []
             self.cursorX = self.px
             self.cursorY = self.py
             self.pIndex = 0
-            self.updateInput(self.px, self.py, "")
+            self.drawInput()
             self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
         elif key == Keyboard.KEY_ENTER:
             self.input.put("".join(self.buffer))
             self.buffer = []
+            self.pIndex = 0
             self.cursorX = self.px
             self.cursorY = self.py
             # clear input
             self.drawInput()
-
-                    # self.pIndex = 0
-        # # move cursor
-        # self.write(f"\033[{self.py};{self.px}H".encode())
-        # self.cursorX = self.px
-        # self.cursorY = self.py
-
-        # # handle keyboard input
-        # s = []
-        # k = None
-        # while k != Keyboard.KEY_ENTER:
-        #     # show cursor
-        #     self.write("\033[?25h".encode())
-        #     k = self.keyboard.getKey()
-        #     # hide cursor
-        #     self.write("\033[?25l".encode())
-        # # clear input
-        # self.updateInput(self.px, self.py, "")
-
-        # return "".join(s)
+            self.cursorX = self.px
+            self.cursorY = self.py
+            self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
         elif Keyboard.isPrintable(key) and len(self.buffer) < self.bufferMax:
             # insert char into buffer
@@ -1101,6 +1088,9 @@ class InputField:
                 self.cursorX = self.tx
                 self.cursorY += 1
             self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+        # show cursor
+        self.write("\033[?25h".encode())
 
 class TerminalTiler:
     """
@@ -1206,7 +1196,6 @@ class TerminalTiler:
         """
         Handles keyboard input for tile navigation and scrolling.
         """
-        self.hide_cursor()
         if key == Keyboard.KEY_TAB:
             if len(self.elements) > 0 and self.focusedIndex >= 0:
                 self.elements[self.focusedIndex].focused = False
