@@ -31,6 +31,17 @@ tile_odd = tt.addTile(x=tt.cols//2,
            headerMode=Header.TEXT_NOWRAP,
            headerBorder=True)
 
+std_out = tt.addTile(x=tt.cols//2,
+          y=15,
+          width=tt.cols//2 - 1,
+          height=10,
+          name="STDOUT",
+          textMode=Tile.TEXT_WRAP,
+          sizeMode=Tile.SIZE_SCROLLING,
+          borderStyle=Border.DOUBLE_BOX)
+
+tt.stdout_FDI.setDefaultTarget(std_out.update)
+
 input_1 = tt.addInputField(x=1,
                  y=20,
                  width=40,
@@ -55,8 +66,8 @@ for i in range(10):
     tile_even.update(f"{i*2}")
 
 while True:
-    time.sleep(1)
     i = int(input_1.getInput())
+    print(f"Stdout: {i}")
     if i % 2 == 0:
         tile_even.update(f"{i}")
     else:
