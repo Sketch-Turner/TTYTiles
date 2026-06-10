@@ -509,6 +509,7 @@ class Tile:
         self.tIndex = 0
 
         self.focused = False
+        self.canFocus = True
         self.drawBorder()
 
     def drawBorder(self):
@@ -825,6 +826,7 @@ class InputField:
         self.input = queue.Queue()
         self.visible = visible
         self.focused = False
+        self.canFocus = True
         if self.visible:
             self.show()
 
@@ -1160,6 +1162,8 @@ class TerminalTiler:
         self.keyboard = Keyboard()
         self.keyboard.subscribe(self.handleInput)
         self.keyboard.start()
+        self.hide_cursor()
+        self.clearScreen()
 
     def addTile(self, x:int, y:int, width:int, height:int, name:str, textMode:int=None, sizeMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerMode:int=None, headerBorder:bool=False):
         """
@@ -1235,14 +1239,25 @@ class TerminalTiler:
         Handles keyboard input for tile navigation and scrolling.
         """
         if key == Keyboard.KEY_TAB:
-            if len(self.elements) > 0 and self.focusedIndex >= 0:
+            # clear old focus
+            if 0 <= self.focusedIndex and self.focusedIndex < len(self.elements):
                 self.elements[self.focusedIndex].focused = False
                 self.elements[self.focusedIndex].show()
-            if len(self.elements) > 0:
+
+            # move forward
+            self.focusedIndex += 1
+
+            # find next focusable
+            while (self.focusedIndex < len(self.elements) and not self.elements[self.focusedIndex].canFocus):
                 self.focusedIndex += 1
-                self.focusedIndex %= len(self.elements)
+
+            # apply or reset
+            if self.focusedIndex < len(self.elements):
                 self.elements[self.focusedIndex].focused = True
                 self.elements[self.focusedIndex].show()
+            else:
+                self.focusedIndex = -1
+                self.hide_cursor()
 
         else:
             # send to element
