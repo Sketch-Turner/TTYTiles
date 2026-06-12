@@ -725,6 +725,26 @@ class DisplayTile:
 
                     # scrollbar
                     self.drawScrollbar()
+            
+            elif key == Keyboard.KEY_PAGE_UP:
+                top = max(0, min(self.tIndex, len(self.text) - self.rows))
+                if top > 0:
+                    self.tIndex = 0
+                    # text
+                    self.drawText()
+
+                    # scrollbar
+                    self.drawScrollbar()
+
+            elif key == Keyboard.KEY_PAGE_DOWN:
+                bottom = max(0, min(self.tIndex, len(self.text) - self.rows))
+                if bottom < len(self.text) - self.rows:
+                    self.tIndex = len(self.text) - 1
+                    # text
+                    self.drawText()
+
+                    # scrollbar
+                    self.drawScrollbar()
 
     def show(self):
         """
