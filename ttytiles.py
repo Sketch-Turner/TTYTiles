@@ -131,7 +131,7 @@ class Keyboard:
                     seq = b"\x1b"
 
                     while True:
-                        r, _, _ = select.select([fd], [], [], 0.03)
+                        r, _, _ = select.select([fd], [], [], 0.01)
 
                         if not r:
                             break
