@@ -27,6 +27,7 @@ class Keyboard:
     KEY_END = "END"
     KEY_HOME = "HOME"
     KEY_TAB = "TAB"
+    KEY_CTRL_C = "CTRL_C"
     PRINTABLE = set([chr(c) for c in range(32, 127)])
 
     def __init__(self):
@@ -34,12 +35,16 @@ class Keyboard:
         Initialize the keyboard input handler.
         """
         self.subscribers = set()
+        self.exit = None
+        self.thread = None
 
-    def start(self):
+    def start(self, exit_event):
         """
         Starts the background keyboard reader thread.
         """
-        threading.Thread(target=self._read, daemon=True).start()
+        self.exit = exit_event
+        self.thread = threading.Thread(target=self._read, daemon=True)
+        self.thread.start()
 
     def subscribe(self, func):
         """
@@ -57,6 +62,8 @@ class Keyboard:
         handlers.
         """
         while True:
+            if self.exit.is_set():
+                break
             k = self._readKey()
 
             for func in self.subscribers:
@@ -95,6 +102,9 @@ class Keyboard:
 
             if ch == "\x1b":
                 return Keyboard.KEY_ESCAPE
+
+            if ch == "\x03":
+                return Keyboard.KEY_CTRL_C
 
             return ch
 
@@ -170,7 +180,7 @@ class FDInterceptor:
     Intercepts writes to a file descriptor using an OS pipe and forwards captured 
     output lines to a user-defined callback function in a background thread.
     """
-    def __init__(self, fd):
+    def __init__(self, fd:int, exit_event:threading.Event):
         """
         Redirects the specified file descriptor into an internal pipe,
         starts a relay thread, and captures all future output written
@@ -178,10 +188,11 @@ class FDInterceptor:
 
         Args:
             fd (int): File descriptor to intercept (Currently only supports STDIN).
+            exit_event (threading.Event): Exit flag.
         """
         self.default_target = None
         self.fd = fd
-        self._running = True
+        self.exit = exit_event
 
         self.r, self.w = os.pipe()
         self.real_fd = os.dup(fd)
@@ -202,7 +213,10 @@ class FDInterceptor:
         interceptor is stopped or the pipe is closed.
         """
         try:
-            while self._running:
+            while True:
+                if self.exit.is_set():
+                    # kill thread
+                    break
                 try:
                     data = os.read(self.r, 65536)
                 except OSError:
@@ -228,11 +242,10 @@ class FDInterceptor:
 
     def close(self):
         """
-        Stops interception, restores the original file descriptor,
-        closes internal pipe resources, and waits for the relay
-        thread to terminate.
+        Stops interception, restores the original file descriptor and
+        closes internal pipe resources.
         """
-        self._running = False
+        self.exit.set()
 
         # wake up os.read() by closing WRITE side
         try:
@@ -252,10 +265,6 @@ class FDInterceptor:
             os.close(self.real_fd)
         except OSError:
             pass
-
-        # wait for thread exit
-        if self.thread.is_alive():
-            self.thread.join()
 
 class Header:
     """
@@ -769,6 +778,7 @@ class InputField:
 
         Args:
             fd (int): Terminal file descriptor.
+            exit_event (threading.Event): Exit flag.
             x (int): Column position.
             y (int): Row position.
             width (int): Widget width.
@@ -778,6 +788,7 @@ class InputField:
             prompt (str): Prompt text displayed above input area.
             border (Border): Border configuration.
         """
+        self.exit = exit_event
         self.write = write_func
         self.x = x #col
         self.y = y #row
@@ -972,7 +983,12 @@ class InputField:
         Returns:
             str: The final edited input string after Enter is pressed.
         """
-        return self.input.get()
+        while not self.exit.is_set():
+            try:
+                return self.input.get(timeout=0.1)
+            except queue.Empty:
+                pass
+        raise TerminalTiler.SIGINT()
 
     def handleInput(self, key:str):
         # hide cursor
@@ -1141,6 +1157,13 @@ class TerminalTiler:
     multiple independent terminal regions (tiles), each with its
     own border, header, and text buffer.
     """
+
+    class SIGINT(Exception):
+        """
+        Thrown when exit threading event is set.
+        """
+        pass
+
     def __init__(self):
         """
         Initializes the TerminalTiler UI system.
@@ -1153,6 +1176,7 @@ class TerminalTiler:
         if os.name == "nt":
             os.system("chcp 65001 > nul") #switch to unicode charset
         self.lock = threading.Lock()
+        self.exit = threading.Event()
         self.cols, self.rows = os.get_terminal_size()
         self.tiles = {}
         self.inputFields = {}
@@ -1161,13 +1185,20 @@ class TerminalTiler:
         self.stdout_FDI = FDInterceptor(1)
         self.keyboard = Keyboard()
         self.keyboard.subscribe(self.handleInput)
-        self.keyboard.start()
         self.hide_cursor()
+        self.keyboard.start(self.exit)
         self.clearScreen()
 
     def addTile(self, x:int, y:int, width:int, height:int, name:str, textMode:int=None, sizeMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerMode:int=None, headerBorder:bool=False):
+    def isAlive(self)->bool:
+        """
+        Checks whether the TerminalTiler is still running.
+
+        Returns:
+            bool: True if the shutdown event has not been set, otherwise False.
         """
         Creates and registers a new Tile in the terminal layout.
+        return not self.exit.is_set()
 
         Performs boundary validation against the terminal size to ensure
         the tile fits within the visible viewport. Then constructs a Tile
@@ -1305,8 +1336,11 @@ class TerminalTiler:
         leaving the cursor inside a UI block, restores the terminal cursor
         visibility, and shuts down the stdout FDInterceptor cleanly.
         """
-        maxY = max(tile.y + tile.height for tile in [*self.tiles.values(), *self.inputFields.values()])
-        self.write(f"\x1b[{maxY};{1}H".encode())
+        if self.isAlive():
+            maxY = max(e.y + e.height for e in self.tiles)
+            self.write(f"\x1b[{maxY};{1}H".encode())
 
-        self.show_cursor()
-        self.stdout_FDI.close()
+            self.showCursor()
+            # kill threads
+            self.exit.set()
+            self.stdout_FDI.close()
