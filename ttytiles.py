@@ -27,6 +27,8 @@ class Keyboard:
     KEY_END = "END"
     KEY_HOME = "HOME"
     KEY_TAB = "TAB"
+    KEY_PAGE_UP = "PAGE_UP"
+    KEY_PAGE_DOWN = "PAGE_DOWN"
     KEY_CTRL_C = "CTRL_C"
     PRINTABLE = set([chr(c) for c in range(32, 127)])
 
@@ -89,6 +91,8 @@ class Keyboard:
                     "S": Keyboard.KEY_DELETE,
                     "G": Keyboard.KEY_HOME,
                     "O": Keyboard.KEY_END,
+                    "I": Keyboard.KEY_PAGE_UP,
+                    "Q": Keyboard.KEY_PAGE_DOWN,
                 }.get(code, code)
 
             if ch == "\r":
@@ -114,50 +118,54 @@ class Keyboard:
             old = termios.tcgetattr(fd)
 
             try:
-                tty.setcbreak(fd)
+                tty.setraw(fd)
 
-                ch = sys.stdin.read(1)
+                ch = os.read(fd, 1)
 
-                if ch == "\x1b":
-                    # possible escape sequence
-                    r, _, _ = select.select([sys.stdin], [], [], 0.01)
+                # Ctrl+C
+                if ch == b"\x03":
+                    return Keyboard.KEY_CTRL_C
 
-                    if r:
-                        seq = sys.stdin.read(2)
+                # Escape / escape sequences
+                if ch == b"\x1b":
+                    seq = b"\x1b"
 
-                        # delete: ESC [ 3 ~
-                        if seq == "[3":
-                            if select.select([sys.stdin], [], [], 0.01)[0]:
-                                sys.stdin.read(1)  # consume ~
-                            return Keyboard.KEY_DELETE
+                    while True:
+                        r, _, _ = select.select([fd], [], [], 0.03)
 
-                        # home: ESC [ H
-                        if seq == "[H":
-                            return Keyboard.KEY_HOME
+                        if not r:
+                            break
 
-                        # end: ESC [ F
-                        if seq == "[F":
-                            return Keyboard.KEY_END
+                        seq += os.read(fd, 1)
 
-                        return {
-                            "[A": Keyboard.KEY_UP,
-                            "[B": Keyboard.KEY_DOWN,
-                            "[D": Keyboard.KEY_LEFT,
-                            "[C": Keyboard.KEY_RIGHT,
-                        }.get(seq, Keyboard.KEY_ESCAPE)
+                    return {
+                        b"\x1b[A": Keyboard.KEY_UP,
+                        b"\x1b[B": Keyboard.KEY_DOWN,
+                        b"\x1b[C": Keyboard.KEY_RIGHT,
+                        b"\x1b[D": Keyboard.KEY_LEFT,
 
-                    return Keyboard.KEY_ESCAPE
+                        b"\x1b[H": Keyboard.KEY_HOME,
+                        b"\x1b[F": Keyboard.KEY_END,
 
-                if ch in ("\r", "\n"):
+                        b"\x1bOH": Keyboard.KEY_HOME,  # xterm variant
+                        b"\x1bOF": Keyboard.KEY_END,
+
+                        b"\x1b[3~": Keyboard.KEY_DELETE,
+
+                        b"\x1b[5~": Keyboard.KEY_PAGE_UP,
+                        b"\x1b[6~": Keyboard.KEY_PAGE_DOWN,
+                    }.get(seq, Keyboard.KEY_ESCAPE)
+
+                if ch in (b"\r", b"\n"):
                     return Keyboard.KEY_ENTER
 
-                if ch == "\x09":
+                if ch == b"\t":
                     return Keyboard.KEY_TAB
 
-                if ch in ("\x7f", "\b"):
+                if ch in (b"\x7f", b"\x08"):
                     return Keyboard.KEY_BACKSPACE
 
-                return ch
+                return ch.decode(errors="ignore")
 
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old)
