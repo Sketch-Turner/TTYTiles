@@ -60,10 +60,12 @@ for i in range(10):
     tile_even.update(f"{i*2}")
 
 while tt.isAlive():
-    i = int(input_1.getInput())
-    if i % 2 == 0:
-        tile_even.update(f"{i}")
-    else:
-        tile_odd.update(f"{i}")
+    val = input_1.getInput()
+    if val.isnumeric():
+        i = int(val)
+        if i % 2 == 0:
+            tile_even.update(f"{i}")
+        else:
+            tile_odd.update(f"{i}")
 
 tt.close()
