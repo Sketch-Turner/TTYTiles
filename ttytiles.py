@@ -452,7 +452,7 @@ class DisplayTile:
     SIZE_SCROLLING = 1
     SIZE_MODES = {SIZE_FIXED, SIZE_SCROLLING}
 
-    def __init__(self, writer_func, x:int, y:int, width:int, height:int, textMode:int, sizeMode:int, border:Border, header:Header):
+    def __init__(self, writer_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textMode:int, sizeMode:int, border:Border, header:Header):
         """
         Initializes a DisplayTile UI component that represents a bordered
         terminal region with an optional header and scrollable text buffer.
@@ -463,6 +463,8 @@ class DisplayTile:
             y (int): Row position of the tile (1-based terminal coords).
             width (int): Total width of the tile including borders.
             height (int): Total height of the tile including borders.
+            visible (bool): Should the item be rendered?
+            canFocus (bool): Can the item be focused?
             textMode (int): Text rendering mode (wrap or no-wrap).
             border (Border): Border style/renderer instance.
             header (Header): Header configuration and buffer.
@@ -520,9 +522,11 @@ class DisplayTile:
             self.text = []
         self.tIndex = 0
 
+        self.visible = visible
         self.focused = False
-        self.canFocus = True
-        self.drawBorder()
+        self.canFocus = canFocus
+        if self.visible:
+            self.drawBorder()
 
     def drawBorder(self):
         """
@@ -647,6 +651,7 @@ class DisplayTile:
         Args:
             text (str): Text to add to text buffer.
         """
+        text = str(text).replace('\r\n', '\n').replace('\r', '\n')
         for line in text.split('\n'):
             if self.textMode == self.TEXT_NOWRAP:
                 output = line[:self.cols]
@@ -673,6 +678,7 @@ class DisplayTile:
         Args:
             text (str): Text to add to text buffer.
         """
+        text = str(text).replace('\r\n', '\n').replace('\r', '\n')
         for line in text.split('\n'):
             if self.textMode == self.TEXT_NOWRAP:
                 output = line[:self.cols]
@@ -769,7 +775,7 @@ class InputTile:
     """
     A fixed-size terminal input widget supporting interactive text editing.
     """
-    def __init__(self, write_func, exit_event:threading.Event, x:int, y:int, width:int, height:int, visible:bool, prompt:str, border:Border):
+    def __init__(self, write_func, exit_event:threading.Event, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, prompt:str, border:Border):
         """
         Initializes a terminal input widget with a fixed-size grid layout.
 
@@ -783,7 +789,8 @@ class InputTile:
             y (int): Row position.
             width (int): Tile width.
             height (int): Tile height.
-            visible (bool): Whether to render immediately.
+            visible (bool): Should the item be rendered?
+            canFocus (bool): Can the item be focused?
             prompt (str): Prompt text displayed above input area.
             border (Border): Border configuration.
         """
@@ -835,7 +842,7 @@ class InputTile:
         self.input = queue.Queue()
         self.visible = visible
         self.focused = False
-        self.canFocus = True
+        self.canFocus = canFocus
         if self.visible:
             self.show()
 
@@ -854,6 +861,7 @@ class InputTile:
         self.prompt = []
         promptBuffer = 0
 
+        prompt = str(prompt).replace('\r\n', '\n').replace('\r', '\n')
         for line in prompt.split('\n'):
             for i in range(0, len(line), self.cols):
                 chunk = line[i:i + self.cols]
@@ -1195,7 +1203,7 @@ class TerminalTiler:
         """
         return not self.exit.is_set()
 
-    def addDisplayTile(self, x:int, y:int, width:int, height:int, textMode:int=None, sizeMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerMode:int=None, headerBorder:bool=False)->DisplayTile:
+    def addDisplayTile(self, x:int, y:int, width:int, height:int, visible:bool=True, canFocus:bool=True, textMode:int=None, sizeMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerMode:int=None, headerBorder:bool=False)->DisplayTile:
         """
         Creates and registers a new DisplayTile in the terminal layout.
 
@@ -1209,6 +1217,8 @@ class TerminalTiler:
             y (int): DisplayTile origin row (1-based).
             width (int): DisplayTile width in characters.
             height (int): DisplayTile height in rows.
+            visible (bool): Show DisplayTile?
+            canFocus (bool): Can this be focused?
             textMode (int, optional): TEXT_WRAP or TEXT_NOWRAP.
             sizeMode (int, optional): SIZE_FIXED or SIZE_SCROLLING.
             borderStyle (int, optional): Border style constant.
@@ -1223,16 +1233,16 @@ class TerminalTiler:
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
             raise ValueError("DisplayTile origin is not contained by terminal")
-        elif x + width >= self.cols:
-            raise ValueError("DisplayTile exceeds terminal boundary (X-axis)")
-        elif y + height >= self.rows:
-            raise ValueError("DisplayTile exceeds terminal boundary (Y-axis)")
+        elif x + width - 1 > self.cols:
+            raise ValueError(f"DisplayTile exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
+        elif y + height - 1 > self.rows:
+            raise ValueError(f"DisplayTile exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        tile = DisplayTile(self.write, x, y, width, height, textMode, sizeMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
+        tile = DisplayTile(self.write, x, y, width, height, visible, canFocus, textMode, sizeMode, Border(borderStyle, borderChar), Header(headerLines, headerMode, headerBorder))
         self.tiles.append(tile)
         return tile
 
-    def addInputTile(self, x:int, y:int, width:int, height:int, visible:bool, prompt:str="", borderStyle:int=None, borderChar:str=None)->InputTile:
+    def addInputTile(self, x:int, y:int, width:int, height:int, visible:bool=True, canFocus:bool=True, prompt:str="", borderStyle:int=None, borderChar:str=None)->InputTile:
         """
         Creates and registers a new InputTile in the terminal layout.
 
@@ -1245,7 +1255,8 @@ class TerminalTiler:
             y (int): InputTile origin row (1-based).
             width (int): InputTile width in characters.
             height (int): InputTile height in rows.
-            visible (bool): Show prompt?
+            visible (bool): Show InputTile?
+            canFocus (bool): Can this be focused?
             prompt (str): Input prompt.
             borderStyle (int, optional): Border style constant.
             borderChar (str, optional): Custom border character.
@@ -1256,12 +1267,12 @@ class TerminalTiler:
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
             raise ValueError("InputTile origin is not contained by terminal")
-        elif x + width >= self.cols:
-            raise ValueError("InputTile exceeds terminal boundary (X-axis)")
-        elif y + height >= self.rows:
-            raise ValueError("InputTile exceeds terminal boundary (Y-axis)")
+        elif x + width - 1 > self.cols:
+            raise ValueError(f"InputTile exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
+        elif y + height - 1 > self.rows:
+            raise ValueError(f"InputTile exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        field = InputTile(self.write, self.exit, x, y, width, height, visible, prompt, Border(borderStyle, borderChar))
+        field = InputTile(self.write, self.exit, x, y, width, height, visible, canFocus, prompt, Border(borderStyle, borderChar))
         self.tiles.append(field)
         return field
 
@@ -1349,7 +1360,7 @@ class TerminalTiler:
         """
         if self.isAlive():
             maxY = max(e.y + e.height for e in self.tiles)
-            self.write(f"\x1b[{maxY};{1}H".encode())
+            self.write(f"\x1b[{maxY};{self.cols}H".encode())
 
             self.showCursor()
             # kill threads
