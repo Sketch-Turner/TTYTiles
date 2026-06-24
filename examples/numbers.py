@@ -1,5 +1,8 @@
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from ttytiles import *
-import time
 
 tt = TerminalTiler()
 
@@ -27,16 +30,6 @@ tile_odd = tt.addDisplayTile(x=tt.cols//2,
            headerMode=Header.TEXT_NOWRAP,
            headerBorder=True)
 
-std_out = tt.addDisplayTile(x=tt.cols//2,
-          y=15,
-          width=tt.cols//2 - 1,
-          height=10,
-          textMode=DisplayTile.TEXT_WRAP,
-          sizeMode=DisplayTile.SIZE_SCROLLING,
-          borderStyle=Border.DOUBLE_BOX)
-
-tt.stdout_FDI.setDefaultTarget(std_out.update)
-
 input_1 = tt.addInputTile(x=1,
                  y=20,
                  width=40,
@@ -56,9 +49,6 @@ tile_even.colors["TEXT_FG_F"] = (0, 0, 250)
 tile_odd.colors["TEXT_FG_F"] = (250, 0, 0)
 input_1.colors["TEXT_FG_F"] = (0, 250, 0)
 
-for i in range(10):
-    tile_even.update(f"{i*2}")
-
 while tt.isAlive():
     val = input_1.getInput()
     if val.isnumeric():
@@ -67,5 +57,7 @@ while tt.isAlive():
             tile_even.update(f"{i}")
         else:
             tile_odd.update(f"{i}")
+    else:
+        break
 
 tt.close()
