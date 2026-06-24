@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ttytiles import *
+from ttytiles import TerminalTiler
 
 TARGET = "scanme.nmap.org"
 PORTS = [21, 22, 23, 25, 53, 80, 110, 111, 135, 137,
@@ -104,8 +104,8 @@ if __name__ == "__main__":
                                    y=9,
                                    width=tt.cols // 2,
                                    height=tt.rows // 2,
-                                   sizeMode=DisplayTile.SIZE_SCROLLING,
-                                   borderStyle=Border.HEAVY_BOX,
+                                   sizeMode=TerminalTiler.DisplayTile.SIZE_SCROLLING,
+                                   borderStyle=TerminalTiler.Border.HEAVY_BOX,
                                    headerBorder=True,
                                    headerLines=1)
 
@@ -113,8 +113,8 @@ if __name__ == "__main__":
                                      y=9,
                                      width=tt.cols // 2 - 1,
                                      height=tt.rows // 2,
-                                     sizeMode=DisplayTile.SIZE_SCROLLING,
-                                     borderStyle=Border.HEAVY_BOX,
+                                     sizeMode=TerminalTiler.DisplayTile.SIZE_SCROLLING,
+                                     borderStyle=TerminalTiler.Border.HEAVY_BOX,
                                      headerBorder=True,
                                      headerLines=1)
 
@@ -132,10 +132,8 @@ if __name__ == "__main__":
                                  y=7,
                                  width=open_ports.width + closed_ports.width)
 
-    progress.colors["TEXT_FG"] = (255, 0, 0)
     progress.textOverlay = "{PERCENT:.2f}%"
     progress.textRight = " {VALUE}/{MAX}"
-
 
     tt.stdout_FDI.default_target = info.update
     print(f"Target  : {TARGET}")
@@ -153,10 +151,12 @@ if __name__ == "__main__":
         futures = [executor.submit(scan_port, TARGET, port, open_ports, closed_ports) for port in PORTS]
 
         for future in as_completed(futures):
-            progress.textLeft = f"Scanning: {future.result():5} "
+            result = future.result()
+            progress.textLeft = f"Scanning: {result:5} "
             progress.update(1)
 
     status.colors["TEXT_FG"] = (46, 204, 113)
     status.update("Scan Complete - Press Ctrl+X to exit.")
 
-    tt.waitForKey(Keyboard.KEY_CTRL_X)
+    tt.waitForKey(TerminalTiler.Keyboard.KEY_CTRL_X)
+    tt.close()
