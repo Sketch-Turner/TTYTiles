@@ -3,6 +3,7 @@ import sys
 import threading
 from collections import deque
 import queue
+import time
 
 if os.name == "nt":
     import msvcrt
@@ -30,6 +31,10 @@ class Keyboard:
     KEY_PAGE_UP = "PAGE_UP"
     KEY_PAGE_DOWN = "PAGE_DOWN"
     KEY_CTRL_C = "CTRL_C"
+    KEY_CTRL_X = "CTRL_x"
+
+    KEY_ANY = "ANY"
+
     PRINTABLE = set([chr(c) for c in range(32, 127)])
 
     def __init__(self):
@@ -110,6 +115,9 @@ class Keyboard:
             if ch == "\x03":
                 return Keyboard.KEY_CTRL_C
 
+            if ch == "\x18":
+                return Keyboard.KEY_CTRL_X
+
             return ch
 
         else:
@@ -125,6 +133,9 @@ class Keyboard:
                 # Ctrl+C
                 if ch == b"\x03":
                     return Keyboard.KEY_CTRL_C
+                
+                if ch == b"\x18":
+                    return Keyboard.KEY_CTRL_X
 
                 # Escape / escape sequences
                 if ch == b"\x1b":
@@ -773,11 +784,11 @@ class DisplayTile:
 
 class InputTile:
     """
-    A fixed-size terminal input widget supporting interactive text editing.
+    A fixed-size terminal input tile supporting interactive text editing.
     """
     def __init__(self, write_func, exit_event:threading.Event, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, prompt:str, border:Border):
         """
-        Initializes a terminal input widget with a fixed-size grid layout.
+        Initializes a terminal input tile with a fixed-size grid layout.
 
         Configures geometry (position, width, height), optional border offsets,
         prompt rendering, and input capacity limits.
@@ -1155,6 +1166,149 @@ class InputTile:
         # show cursor
         self.write("\033[?25h".encode())
 
+class ProgressBar:
+    """
+    A terminal UI region that renders a progress bar.
+    """
+    def __init__(self, write_func, max:int, x:int, y:int, width:int, height:int, visible:bool, border:Border, barChar:str, barLeft:str="", barRight:str=""):
+        """
+        Initialize a ProgressBar display tile.
+
+        The progress bar is rendered inside an internal DisplayTile and tracks
+        a current value relative to a maximum value. Optional text can be shown
+        to the left, right, or overlaid on top of the bar.
+
+        Args:
+            write_func (callable):
+                Function used to write output to the display.
+            max (int):
+                Maximum progress value representing 100% completion.
+            x (int):
+                X-coordinate of the tile.
+            y (int):
+                Y-coordinate of the tile.
+            width (int):
+                Width of the tile in characters.
+            height (int):
+                Height of the tile in characters.
+            visible (bool):
+                Whether the tile is initially visible.
+            border (Border):
+                Border configuration used by the underlying DisplayTile.
+            barChar (str):
+                Character used to draw the filled portion of the progress bar.
+            barLeft (str, optional):
+                Character or string displayed at the left edge of the bar.
+                Defaults to "".
+            barRight (str, optional):
+                Character or string displayed at the right edge of the bar.
+                Defaults to "".
+        """
+        self.max = max
+        self.value = 0
+        self.textLeft = "" # text on left side of progress bar
+        self.textRight = "" # text on right side of progress bar
+        self.textOverlay = "" # text overlayed on top of bar
+        self.barChar = barChar # char used to draw bar
+        self.barLeft = barLeft # left boundary of progress bar
+        self.barRight = barRight # right boundary of progress bar
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.canFocus = False
+        self.displayTile = DisplayTile(writer_func=write_func,
+                                       x=x,
+                                       y=y,
+                                       width=width,
+                                       height=height,
+                                       visible=visible,
+                                       canFocus=False,
+                                       textMode=DisplayTile.TEXT_NOWRAP,
+                                       sizeMode=DisplayTile.SIZE_FIXED,
+                                       border=border,
+                                       header=Header())
+        # colors
+        self.colors = {
+            "BORDER_FG": None,
+            "BORDER_BG": None,
+            "INPUT_FG": None,
+            "INPUT_BG": None,
+            "TEXT_FG": None,
+            "TEXT_BG": None,
+            "BORDER_FG_F": None,
+            "BORDER_BG_F": None,
+            "INPUT_FG_F": None,
+            "INPUT_BG_F": None,
+            "TEXT_FG_F": None,
+            "TEXT_BG_F": None
+        }
+        self.displayTile.colors = self.colors # link objects by reference
+
+    def drawBorder(self):
+        """
+        Render border.
+        """
+        self.displayTile.drawBorder()
+
+    def drawText(self):
+        """
+        Render progress bar.
+        """
+        self.displayTile.drawText()
+
+    def show(self):
+        """
+        Render element.
+        """
+        self.displayTile.show()
+
+    def hide(self):
+        """
+        Hide element.
+        """
+        self.displayTile.hide()
+
+    def update(self, increment:int):
+        """
+        Increment the progress value and redraw the progress bar.
+        The current value is increased by increment and clamped to the
+        configured maximum value. The bar is automatically resized to fit
+        within the available tile width after accounting for any surrounding
+        text and bar boundaries.
+
+        Three text sections will be rendered if set:
+
+            textLeft    - Rendered on left side of progress bar.
+            textOverlay - Overlay text is centered within the bar and replaces the underlying bar characters.
+            textRight   - Rendered on right side of progress bar.
+
+        These sections may be formatted using the following placeholders:
+
+            {VALUE}   - Current progress value.
+            {MAX}     - Maximum progress value.
+            {PERCENT} - Progress percentage (0-100).
+            {RATIO}   - Progress ratio (0.0-1.0).
+
+        Args:
+            increment (int):
+                Amount to add to the current progress value.
+        """
+        # increment bar value
+        self.value = min(self.max, self.value + increment)
+        # get formatted text
+        left = self.textLeft.format(VALUE=self.value, MAX=self.max, PERCENT=100*self.value/self.max, RATIO=self.value/self.max)
+        right = self.textRight.format(VALUE=self.value, MAX=self.max, PERCENT=100*self.value/self.max, RATIO=self.value/self.max)
+        overlay = self.textOverlay.format(VALUE=self.value, MAX=self.max, PERCENT=100*self.value/self.max, RATIO=self.value/self.max)
+        # build bar 
+        barWidth = min(self.displayTile.cols, self.displayTile.cols - (len(self.barLeft) + len(self.barRight) + len(left) + len(right)))
+        barFilled = int(barWidth * self.value / self.max)
+        barRaw = (self.barChar * barFilled)[:barFilled] + " " * (barWidth - barFilled)
+        midIndex = (len(barRaw) - len(overlay)) // 2
+        bar = barRaw[:midIndex] + overlay + barRaw[midIndex + len(overlay):]
+        self.displayTile.update(left + self.barLeft + bar + self.barRight + right)
+        self.drawText()
+
 class TerminalTiler:
     """
     Manages a collection of Tiles to build a structured
@@ -1187,6 +1341,7 @@ class TerminalTiler:
         self.cols, self.rows = os.get_terminal_size()
         self.focusedIndex = -1 # index of active element
         self.tiles = [] # holds all tile elements
+        self.exitKey = None # exit when this key is pressed
         self.stdout_FDI = FDInterceptor(1, self.exit)
         self.keyboard = Keyboard()
         self.keyboard.subscribe(self.handleInput)
@@ -1209,8 +1364,7 @@ class TerminalTiler:
 
         Performs boundary validation against the terminal size to ensure
         the tile fits within the visible viewport. Then constructs a DisplayTile
-        instance with the specified border and header configuration and
-        stores it in the tile registry under the provided name.
+        instance with the specified border and header configuration stores it in self.tiles[].
 
         Args:
             x (int): DisplayTile origin column (1-based).
@@ -1248,7 +1402,7 @@ class TerminalTiler:
 
         Performs boundary validation against the terminal size to ensure
         the InputTile fits within the visible viewport. Then constructs an InputTile
-        instance with the specified border and header configuration.
+        instance with the specified border and header configuration stores it in self.tiles[].
 
         Args:
             x (int): InputTile origin column (1-based).
@@ -1276,11 +1430,54 @@ class TerminalTiler:
         self.tiles.append(field)
         return field
 
+    def addProgressBar(self, max:int, barChar:str, x:int, y:int, width:int, visible:bool=True, borderStyle:int=None, borderChar:str=None, barLeft:str="", barRight:str="")->ProgressBar:
+        """
+        Creates and registers a new ProgressBar in the terminal layout.
+
+        Performs boundary validation against the terminal size to ensure
+        the tile fits within the visible viewport. Then constructs a ProgressBar
+        instance with the specified border configuration and stores it in self.tiles[].
+
+        Args:
+            max (int): Max value.
+            barChar (str): Character(s) used to draw the progress bar.
+            x (int): ProgressBar origin column (1-based).
+            y (int): ProgressBar origin row (1-based).
+            width (int): ProgressBar width in characters.
+            visible (bool): Show ProgressBar?
+            borderStyle (int, optional): Border style constant.
+            borderChar (str, optional): Custom bar character.
+            barLeft (str, optional): Left boundary of progress bar.
+            barRight (str, optional): Right boundary of progress bar.
+
+        Returns:
+            ProgressBar: ProgressBar object.
+        """
+        height = 1
+        if borderStyle:
+            if borderStyle != Border.NO_BORDER:
+                height = 3
+        #check dimensions
+        if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
+            raise ValueError("ProgressBar origin is not contained by terminal")
+        elif x + width - 1 > self.cols:
+            raise ValueError(f"ProgressBar exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
+        elif y + height - 1 > self.rows:
+            raise ValueError(f"ProgressBar exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
+        elif max <= 0:
+            raise ValueError(f"Max bar value must be > 0")
+
+        tile = ProgressBar(self.write, max, x, y, width, height, visible, Border(borderStyle, borderChar), barChar, barLeft, barRight)
+        self.tiles.append(tile)
+        return tile
+
     def handleInput(self, key:str):
         """
         Handles keyboard input for tile navigation and scrolling.
         """
-        if key == Keyboard.KEY_TAB:
+        if key == self.exitKey or self.exitKey == Keyboard.KEY_ANY:
+            self.close()
+        elif key == Keyboard.KEY_TAB:
             # clear old focus
             if 0 <= self.focusedIndex and self.focusedIndex < len(self.tiles):
                 self.tiles[self.focusedIndex].focused = False
@@ -1360,9 +1557,24 @@ class TerminalTiler:
         """
         if self.isAlive():
             maxY = max(e.y + e.height for e in self.tiles)
-            self.write(f"\x1b[{maxY};{self.cols}H".encode())
+            self.write(f"\x1b[{maxY};1H".encode())
 
             self.showCursor()
             # kill threads
             self.exit.set()
             self.stdout_FDI.close()
+
+    def waitForKey(self, key:str, waitTime:int=1):
+        """
+        Blocks current thread until the specified key is pressed.
+
+        Args:
+            key (str):
+                Value stored in self.exitKey. self.close() is called when this key is pressed.
+            waitTime (int, optional):
+                Number of seconds to wait between status checks. Default: 1
+        """
+        self.exitKey = key
+        # wait
+        while self.isAlive():
+            time.sleep(waitTime)
