@@ -1475,7 +1475,10 @@ class TerminalTiler:
         """
         Handles keyboard input for tile navigation and scrolling.
         """
-        if (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY) and self.waiting:
+        if key == TerminalTiler.Keyboard.KEY_CTRL_C:
+            self.close()
+
+        elif (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY) and self.waiting:
             self.waiting = False
 
         elif key == TerminalTiler.Keyboard.KEY_TAB:
@@ -1498,9 +1501,6 @@ class TerminalTiler:
             else:
                 self.focusedIndex = -1
                 self.hideCursor()
-
-        elif key == TerminalTiler.Keyboard.KEY_CTRL_C:
-            self.close()
 
         else:
             # send to element
