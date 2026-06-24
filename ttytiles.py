@@ -472,7 +472,7 @@ class TerminalTiler:
         SIZE_SCROLLING = 1
         SIZE_MODES = {SIZE_FIXED, SIZE_SCROLLING}
 
-        def __init__(self, writer_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textMode:int, sizeMode:int, border, header):
+        def __init__(self, writer_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textMode:int, sizeMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             """
             Initializes a DisplayTile UI component that represents a bordered
             terminal region with an optional header and scrollable text buffer.
@@ -795,7 +795,7 @@ class TerminalTiler:
         """
         A fixed-size terminal input tile supporting interactive text editing.
         """
-        def __init__(self, write_func, exit_event:threading.Event, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, prompt:str, border):
+        def __init__(self, write_func, exit_event:threading.Event, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, prompt:str, border:"TerminalTiler.Border"):
             """
             Initializes a terminal input tile with a fixed-size grid layout.
 
@@ -1179,7 +1179,7 @@ class TerminalTiler:
         """
         A terminal UI region that renders a progress bar.
         """
-        def __init__(self, write_func, max:int, x:int, y:int, width:int, height:int, visible:bool, border, barChar:str, barLeft:str, barRight:str):
+        def __init__(self, write_func, max:int, x:int, y:int, width:int, height:int, visible:bool, border:"TerminalTiler.Border", barChar:str, barLeft:str, barRight:str):
             """
             Initialize a ProgressBar display tile.
 
