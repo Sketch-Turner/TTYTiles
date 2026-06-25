@@ -557,11 +557,11 @@ class TerminalTiler:
                 - Bottom border line
             """
             if self.focused:
-                color_fg = self.colors["BORDER_FG_F"]
-                color_bg = self.colors["BORDER_BG_F"]
+                color_fg = self.colors.get("BORDER_FG_F", None)
+                color_bg = self.colors.get("BORDER_BG_F", None)
             else:
-                color_fg = self.colors["BORDER_FG"]
-                color_bg = self.colors["BORDER_BG"]
+                color_fg = self.colors.get("BORDER_FG", None)
+                color_bg = self.colors.get("BORDER_BG", None)
 
             for row in range(self.y + 1, self.y + self.height):
                 self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
@@ -581,11 +581,11 @@ class TerminalTiler:
             Draws the right-side scrollbar border.
             """
             if self.focused:
-                color_fg = self.colors["BORDER_FG_F"]
-                color_bg = self.colors["BORDER_BG_F"]
+                color_fg = self.colors.get("BORDER_FG_F", None)
+                color_bg = self.colors.get("BORDER_BG_F", None)
             else:
-                color_fg = self.colors["BORDER_FG"]
-                color_bg = self.colors["BORDER_BG"]
+                color_fg = self.colors.get("BORDER_FG", None)
+                color_bg = self.colors.get("BORDER_BG", None)
 
             #top
             header_height = self.header.rows
@@ -610,11 +610,11 @@ class TerminalTiler:
             Renders the scrollbar thumb inside the scrollbar track.
             """
             if self.focused:
-                color_fg = self.colors["BORDER_FG_F"]
-                color_bg = self.colors["BORDER_BG_F"]
+                color_fg = self.colors.get("BORDER_FG_F", None)
+                color_bg = self.colors.get("BORDER_BG_F", None)
             else:
-                color_fg = self.colors["BORDER_FG"]
-                color_bg = self.colors["BORDER_BG"]
+                color_fg = self.colors.get("BORDER_FG", None)
+                color_bg = self.colors.get("BORDER_BG", None)
 
             bar_top = self.y + self.header.rows
             if self.border.style != TerminalTiler.Border.NO_BORDER:
@@ -652,11 +652,11 @@ class TerminalTiler:
             Renders the visible portion of the text buffer to the terminal.
             """
             if self.focused:
-                color_fg = self.colors["TEXT_FG_F"]
-                color_bg = self.colors["TEXT_BG_F"]
+                color_fg = self.colors.get("TEXT_FG_F", None)
+                color_bg = self.colors.get("TEXT_BG_F", None)
             else:
-                color_fg = self.colors["TEXT_FG"]
-                color_bg = self.colors["TEXT_BG"]
+                color_fg = self.colors.get("TEXT_FG", None)
+                color_bg = self.colors.get("TEXT_BG", None)
             row = self.ty
             start = max(0, min(self.tIndex, len(self.text) - self.rows))
             for line in list(self.text)[start:start + self.rows]:
@@ -714,11 +714,11 @@ class TerminalTiler:
             Renders header to terminal.
             """
             if self.focused:
-                color_fg = self.colors["HEADER_FG_F"]
-                color_bg = self.colors["HEADER_BG_F"]
+                color_fg = self.colors.get("HEADER_FG_F", None)
+                color_bg = self.colors.get("HEADER_BG_F", None)
             else:
-                color_fg = self.colors["HEADER_FG"]
-                color_bg = self.colors["HEADER_BG"]
+                color_fg = self.colors.get("HEADER_FG", None)
+                color_bg = self.colors.get("HEADER_BG", None)
             row = self.hy
             for line in self.header.text:
                 self.write(f"\x1b[{row};{self.hx}H{line}".encode(), color_fg, color_bg)
@@ -776,6 +776,7 @@ class TerminalTiler:
             """
             Renders DisplayTile
             """
+            self.visible = True
             # hide cursor
             self.write("\033[?25l".encode())
             self.drawBorder()
@@ -786,6 +787,7 @@ class TerminalTiler:
             """
             Hides DisplayTile
             """
+            self.visible = False
             # hide cursor
             self.write("\033[?25l".encode())
             for i in range(self.height):
@@ -896,6 +898,7 @@ class TerminalTiler:
             """
             Renders InputTile
             """
+            self.visible = True
             # hide cursor
             self.write("\033[?25l".encode())
             self.drawBorder()
@@ -915,6 +918,7 @@ class TerminalTiler:
             """
             Hides InputTile
             """
+            self.visible = False
             for i in range(self.height):
                 self.write(f"\x1b[{self.y + i};{self.x}H{' ' * self.width}".encode())
 
@@ -924,11 +928,11 @@ class TerminalTiler:
             """
             # render text
             if self.focused:
-                color_fg = self.colors["TEXT_FG_F"]
-                color_bg = self.colors["TEXT_BG_F"]
+                color_fg = self.colors.get("TEXT_FG_F", None)
+                color_bg = self.colors.get("TEXT_BG_F", None)
             else:
-                color_fg = self.colors["TEXT_FG"]
-                color_bg = self.colors["TEXT_BG"]
+                color_fg = self.colors.get("TEXT_FG", None)
+                color_bg = self.colors.get("TEXT_BG", None)
             row = self.ty
             for line in self.prompt:
                 self.write(f"\x1b[{row};{self.tx}H{line}".encode(), color_fg, color_bg)
@@ -942,11 +946,11 @@ class TerminalTiler:
                 - Bottom border line
             """
             if self.focused:
-                color_fg = self.colors["BORDER_FG_F"]
-                color_bg = self.colors["BORDER_BG_F"]
+                color_fg = self.colors.get("BORDER_FG_F", None)
+                color_bg = self.colors.get("BORDER_BG_F", None)
             else:
-                color_fg = self.colors["BORDER_FG"]
-                color_bg = self.colors["BORDER_BG"]
+                color_fg = self.colors.get("BORDER_FG", None)
+                color_bg = self.colors.get("BORDER_BG", None)
 
             for row in range(self.y + 1, self.y + self.height):
                 self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
@@ -980,11 +984,11 @@ class TerminalTiler:
 
             # write
             if self.focused:
-                color_fg = self.colors["INPUT_FG_F"]
-                color_bg = self.colors["INPUT_BG_F"]
+                color_fg = self.colors.get("INPUT_FG_F", None)
+                color_bg = self.colors.get("INPUT_BG_F", None)
             else:
-                color_fg = self.colors["INPUT_FG"]
-                color_bg = self.colors["INPUT_BG"]
+                color_fg = self.colors.get("INPUT_FG", None)
+                color_bg = self.colors.get("INPUT_BG", None)
 
             cX, cY = self.cursorX, self.cursorY
 
@@ -1226,6 +1230,7 @@ class TerminalTiler:
             self.width = width
             self.height = height
             self.canFocus = False
+            self.visible = visible
             self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
                                         x=x,
                                         y=y,
@@ -1241,14 +1246,10 @@ class TerminalTiler:
             self.colors = {
                 "BORDER_FG": None,
                 "BORDER_BG": None,
-                "INPUT_FG": None,
-                "INPUT_BG": None,
                 "TEXT_FG": None,
                 "TEXT_BG": None,
                 "BORDER_FG_F": None,
                 "BORDER_BG_F": None,
-                "INPUT_FG_F": None,
-                "INPUT_BG_F": None,
                 "TEXT_FG_F": None,
                 "TEXT_BG_F": None
             }
@@ -1270,12 +1271,14 @@ class TerminalTiler:
             """
             Render element.
             """
+            self.visible = True
             self.displayTile.show()
 
         def hide(self):
             """
             Hide element.
             """
+            self.visible = False
             self.displayTile.hide()
 
         def update(self, increment:int):
@@ -1534,19 +1537,24 @@ class TerminalTiler:
             fg_color (tuple[int, int, int], optional): RGB foreground color.
             bg_color (tuple[int, int, int], optional): RGB background color.
         """
-        with self.lock:
-            # fg
-            if not fg_color is None:
-                os.write(self.stdout_FDI.real_fd, f"\033[38;2;{fg_color[0]};{fg_color[1]};{fg_color[2]}m".encode())
-            # bg
-            if not bg_color is None:
-                os.write(self.stdout_FDI.real_fd, f"\033[48;2;{bg_color[0]};{bg_color[1]};{bg_color[2]}m".encode())
+        # check if threads are exiting
+        if self.isAlive():
+            # check if alert is active
+            with self.alert:
+                # check if another thread is writing
+                with self.lock:
+                    # fg
+                    if not fg_color is None:
+                        os.write(self.stdout_FDI.real_fd, f"\033[38;2;{fg_color[0]};{fg_color[1]};{fg_color[2]}m".encode())
+                    # bg
+                    if not bg_color is None:
+                        os.write(self.stdout_FDI.real_fd, f"\033[48;2;{bg_color[0]};{bg_color[1]};{bg_color[2]}m".encode())
 
-            # write
-            os.write(self.stdout_FDI.real_fd, text)
+                    # write
+                    os.write(self.stdout_FDI.real_fd, text)
 
-            # reset color
-            os.write(self.stdout_FDI.real_fd, f"\033[0m".encode())
+                    # reset color
+                    os.write(self.stdout_FDI.real_fd, f"\033[0m".encode())
 
     def close(self):
         """
@@ -1557,12 +1565,13 @@ class TerminalTiler:
         visibility, and shuts down the stdout FDInterceptor cleanly.
         """
         if self.isAlive():
-            maxY = max(e.y + e.height for e in self.tiles)
-            self.write(f"\x1b[{maxY};1H".encode())
-
-            self.showCursor()
-            # kill threads
+            # set flag
             self.exit.set()
+            # reset cursor
+            maxY = max(e.y + e.height for e in self.tiles)
+            os.write(self.stdout_FDI.real_fd, f"\x1b[{maxY};1H".encode()) # position
+            os.write(self.stdout_FDI.real_fd, "\033[?25h".encode()) # show
+            # kill threads
             self.stdout_FDI.close()
 
     def waitForKey(self, key:str, waitTime:int=1):
