@@ -1321,6 +1321,129 @@ class TerminalTiler:
             self.displayTile.update((left + self.barLeft + bar + self.barRight + right)[:self.displayTile.cols])
             self.drawText()
 
+    class Alert:
+        """
+        A terminal UI region that displays a message for a set time.
+        """
+        TEXT_NOWRAP = 0
+        TEXT_WRAP = 1
+        TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
+        def __init__(self, write_func, overlap_func, alert_lock:threading.RLock, exit_event:threading.Event, text:str, x:int, y:int, width:int, height:int, textMode:int, border:"TerminalTiler.Border"):
+            """
+            Initialize a Alert display tile.
+
+            The Alert will be rendered over all other elements.
+
+            Args:
+                write_func (callable):
+                    Function used to write output to the display.
+                overlap_func (callable):
+                    Function used to query tile intersections.
+                alert_lock (threading.RLock):
+                    Active alert lock.
+                exit_event (threading.Event): 
+                    Exit flag.
+                text (str):
+                    Alert text.
+                x (int):
+                    X-coordinate of the tile.
+                y (int):
+                    Y-coordinate of the tile.
+                width (int):
+                    Width of the tile in characters.
+                height (int):
+                    Height of the tile in characters.
+                textMode (int):
+                    Text rendering mode (wrap or no-wrap).
+                border (TerminalTiler.Border):
+                    Border configuration used by the underlying DisplayTile.
+            """
+            self.getOverlaps = overlap_func
+            self.lock = alert_lock
+            self.exit = exit_event
+            self.text = text
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+            self.canFocus = False
+            self.visible = False
+            self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
+                                                         x=x,
+                                                         y=y,
+                                                         width=width,
+                                                         height=height,
+                                                         visible=False,
+                                                         canFocus=False,
+                                                         textMode=textMode,
+                                                         sizeMode=TerminalTiler.DisplayTile.SIZE_FIXED,
+                                                         border=border,
+                                                         header=TerminalTiler.Header())
+            # colors
+            self.colors = {
+                "BORDER_FG": None,
+                "BORDER_BG": None,
+                "TEXT_FG": None,
+                "TEXT_BG": None,
+                "BORDER_FG_F": None,
+                "BORDER_BG_F": None,
+                "TEXT_FG_F": None,
+                "TEXT_BG_F": None
+            }
+            self.displayTile.colors = self.colors # link objects by reference
+
+        def drawBorder(self):
+            """
+            Render border.
+            """
+            with self.lock:
+                self.displayTile.drawBorder()
+
+        def drawText(self):
+            """
+            Render alert text.
+            """
+            with self.lock:
+                self.displayTile.text.clear()
+                self.displayTile.update(self.text)
+
+        def show(self, duration:float=0):
+            """
+            Render element for a given number of seconds.
+
+            Args:
+                duration (float):
+                    Number of seconds to display alert.
+            """
+            if duration > 0:
+                with self.lock:
+                    self.visible = True
+                    self.displayTile.visible = True
+                    self.displayTile.write("\033[?25l".encode()) # hide cursor
+                    self.displayTile.drawBorder()
+                    self.displayTile.text.clear()
+                    self.displayTile.update(self.text)
+                    while not self.exit.is_set():
+                        if duration >= 1:
+                            duration -= 1
+                            time.sleep(1)
+                        else:
+                            time.sleep(duration)
+                            self.displayTile.hide()
+                            # restore tiles under alert
+                            for tile in self.getOverlaps(self):
+                                if tile.visible:
+                                    tile.show()
+                            break
+
+        def hide(self):
+            """
+            Hide element.
+            """
+            with self.lock:
+                self.visible = False
+                self.displayTile.hide()
+
     class SIGINT(Exception):
         """
         Thrown when exit threading event is set.
@@ -1338,7 +1461,8 @@ class TerminalTiler:
         """
         if os.name == "nt":
             os.system("chcp 65001 > nul") #switch to unicode charset
-        self.lock = threading.Lock()
+        self.lock = threading.Lock() # write lock
+        self.alert = threading.RLock() # alert lock
         self.exit = threading.Event()
         self.cols, self.rows = os.get_terminal_size()
         self.focusedIndex = -1 # index of active element
@@ -1347,7 +1471,7 @@ class TerminalTiler:
         self.waitKey = None # used by waitForKey
         self.stdout_FDI = TerminalTiler.FDInterceptor(1, self.exit)
         self.keyboard = TerminalTiler.Keyboard()
-        self.keyboard.subscribe(self.handleInput)
+        self.keyboard.subscribe(self._handleInput)
         self.keyboard.start(self.exit)
         self.hideCursor()
         self.clearScreen()
@@ -1395,7 +1519,17 @@ class TerminalTiler:
         elif y + height - 1 > self.rows:
             raise ValueError(f"DisplayTile exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        tile = TerminalTiler.DisplayTile(self.write, x, y, width, height, visible, canFocus, textMode, sizeMode, TerminalTiler.Border(borderStyle, borderChar), TerminalTiler.Header(headerLines, headerMode, headerBorder))
+        tile = TerminalTiler.DisplayTile(writer_func=self._write, 
+                                         x=x, 
+                                         y=y, 
+                                         width=width, 
+                                         height=height, 
+                                         visible=visible, 
+                                         canFocus=canFocus, 
+                                         textMode=textMode, 
+                                         sizeMode=sizeMode, 
+                                         border=TerminalTiler.Border(borderStyle, borderChar), 
+                                         header=TerminalTiler.Header(headerLines, headerMode, headerBorder))
         self.tiles.append(tile)
         return tile
 
@@ -1429,7 +1563,16 @@ class TerminalTiler:
         elif y + height - 1 > self.rows:
             raise ValueError(f"InputTile exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        field = TerminalTiler.InputTile(self.write, self.exit, x, y, width, height, visible, canFocus, prompt, TerminalTiler.Border(borderStyle, borderChar))
+        field = TerminalTiler.InputTile(write_func=self._write, 
+                                        exit_event=self.exit, 
+                                        x=x, 
+                                        y=y, 
+                                        width=width, 
+                                        height=height, 
+                                        visible=visible, 
+                                        canFocus=canFocus, 
+                                        prompt=prompt, 
+                                        border=TerminalTiler.Border(borderStyle, borderChar))
         self.tiles.append(field)
         return field
 
@@ -1470,65 +1613,140 @@ class TerminalTiler:
         elif max <= 0:
             raise ValueError(f"Max bar value must be > 0")
 
-        tile = TerminalTiler.ProgressBar(self.write, max, x, y, width, height, visible, TerminalTiler.Border(borderStyle, borderChar), barChar, barLeft, barRight)
+        tile = TerminalTiler.ProgressBar(write_func=self._write, 
+                                         max=max, 
+                                         x=x, 
+                                         y=y, 
+                                         width=width, 
+                                         height=height, 
+                                         visible=visible, 
+                                         border=TerminalTiler.Border(borderStyle, borderChar), 
+                                         barChar=barChar, 
+                                         barLeft=barLeft, 
+                                         barRight=barRight)
         self.tiles.append(tile)
         return tile
 
-    def handleInput(self, key:str):
+    def addAlert(self, x:int, y:int, width:int, height:int, textMode:int=None, borderStyle:int=None, borderChar:str=None, text:str="")->Alert:
+        """
+        Creates and registers a new Alert in the terminal layout.
+
+        Performs boundary validation against the terminal size to ensure
+        the tile fits within the visible viewport. Then constructs an Alert
+        instance with the specified border configuration and stores it in self.tiles[].
+
+        Args:
+            x (int): Alert origin column (1-based).
+            y (int): Alert origin row (1-based).
+            width (int): Alert width in characters.
+            height (int): InputTile height in rows.
+            textMode (int, optional): TEXT_WRAP or TEXT_NOWRAP.
+            borderStyle (int, optional): Border style constant.
+            borderChar (str, optional): Custom bar character.
+            text (str, optional): Alert text.
+
+        Returns:
+            Alert: Alert object.
+        """
+        #check dimensions
+        if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
+            raise ValueError("Alert origin is not contained by terminal")
+        elif x + width - 1 > self.cols:
+            raise ValueError(f"Alert exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
+        elif y + height - 1 > self.rows:
+            raise ValueError(f"Alert exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
+
+        tile = TerminalTiler.Alert(write_func=self._write, 
+                                   overlap_func=self._getIntersectingElements,
+                                   alert_lock=self.alert, 
+                                   exit_event=self.exit,
+                                   x=x, 
+                                   y=y, 
+                                   width=width, 
+                                   height=height, 
+                                   textMode=textMode,
+                                   border=TerminalTiler.Border(borderStyle, borderChar), 
+                                   text=text)
+        self.tiles.append(tile)
+        return tile
+
+    def _getIntersectingElements(self, tile)->list:
+        """
+        Get all tiles that geometrically overlap the given tile.
+
+        Args:
+            tile: The tile to test against.
+
+        Returns:
+            list: A list of intersecting tiles.
+        """
+        overlaps = []
+        for t in self.tiles:
+            if not t is tile:
+                if tile.x < t.x + t.width and tile.x + tile.width > t.x and tile.y < t.y + t.height and tile.y + tile.height > t.y:
+                    overlaps.append(t)
+
+        return overlaps
+
+    def _handleInput(self, key:str):
         """
         Handles keyboard input for tile navigation and scrolling.
         """
         if key == TerminalTiler.Keyboard.KEY_CTRL_C:
             self.close()
 
-        elif (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY) and self.waiting:
-            self.waiting = False
+        # if alert is active, drop input
+        elif self.alert.acquire(blocking=False):
+            if (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY) and self.waiting:
+                self.waiting = False
 
-        elif key == TerminalTiler.Keyboard.KEY_TAB:
-            # clear old focus
-            if 0 <= self.focusedIndex and self.focusedIndex < len(self.tiles):
-                self.tiles[self.focusedIndex].focused = False
-                self.tiles[self.focusedIndex].show()
+            elif key == TerminalTiler.Keyboard.KEY_TAB:
+                # clear old focus
+                if 0 <= self.focusedIndex and self.focusedIndex < len(self.tiles):
+                    self.tiles[self.focusedIndex].focused = False
+                    self.tiles[self.focusedIndex].show()
 
-            # move forward
-            self.focusedIndex += 1
-
-            # find next focusable
-            while (self.focusedIndex < len(self.tiles) and not self.tiles[self.focusedIndex].canFocus):
+                # move forward
                 self.focusedIndex += 1
 
-            # apply or reset
-            if self.focusedIndex < len(self.tiles):
-                self.tiles[self.focusedIndex].focused = True
-                self.tiles[self.focusedIndex].show()
-            else:
-                self.focusedIndex = -1
-                self.hideCursor()
+                # find next focusable
+                while (self.focusedIndex < len(self.tiles) and not self.tiles[self.focusedIndex].canFocus):
+                    self.focusedIndex += 1
 
-        else:
-            # send to element
-            if self.focusedIndex >= 0:
-                self.tiles[self.focusedIndex].handleInput(key)
+                # apply or reset
+                if self.focusedIndex < len(self.tiles):
+                    self.tiles[self.focusedIndex].focused = True
+                    self.tiles[self.focusedIndex].show()
+                else:
+                    self.focusedIndex = -1
+                    self.hideCursor()
+
+            else:
+                # send to element
+                if self.focusedIndex >= 0:
+                    self.tiles[self.focusedIndex].handleInput(key)
+
+            self.alert.release()
 
     def clearScreen(self):
         """
         Clears terminal screen.
         """
-        self.write("\x1b[2J".encode())
+        self._write("\x1b[2J".encode())
 
     def hideCursor(self):
         """
         Hides cursor.
         """
-        self.write("\033[?25l".encode())
+        self._write("\033[?25l".encode())
 
     def showCursor(self):
         """
         Shows cursor.
         """
-        self.write("\033[?25h".encode())
+        self._write("\033[?25h".encode())
 
-    def write(self, text:bytes, fg_color:tuple[int, int, int]=None, bg_color:tuple[int, int, int]=None):
+    def _write(self, text:bytes, fg_color:tuple[int, int, int]=None, bg_color:tuple[int, int, int]=None):
         """
         Writes text to the terminal.
 
