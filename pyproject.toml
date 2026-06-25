@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ttytiles"
+version = "1.0.0"
+authors = [
+  { name="Sketch", email="sketch.turner.dev+ttytiles@gmail.com" },
+]
+description = "Python library for managing a custom terminal IO layout. Create customizable input, output, and progress bar elements displayed on the terminal."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://github.com/Sketch-Turner/TTYTiles"
+Issues = "https://github.com/Sketch-Turner/TTYTiles#Issues"
