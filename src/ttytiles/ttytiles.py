@@ -546,7 +546,7 @@ class TerminalTiler:
             self.focused = False
             self.canFocus = canFocus
             if self.visible:
-                self.drawBorder()
+                self.show()
 
         def drawBorder(self):
             """
@@ -659,7 +659,10 @@ class TerminalTiler:
                 color_bg = self.colors.get("TEXT_BG", None)
             row = self.ty
             start = max(0, min(self.tIndex, len(self.text) - self.rows))
-            for line in list(self.text)[start:start + self.rows]:
+            lines = list(self.text)[start:start + self.rows]
+            if len(lines) < self.rows:
+                lines += [' ' * self.cols] * (self.rows - len(lines))
+            for line in lines:
                 self.write(f"\x1b[{row};{self.tx}H{line}".encode(), color_fg, color_bg)
                 row += 1
 
@@ -698,15 +701,16 @@ class TerminalTiler:
             Args:
                 text (str): Text to add to text buffer.
             """
+            cols = self.cols if self.sizeMode != self.SIZE_SCROLLING else self.cols + 2
             text = str(text).replace('\r\n', '\n').replace('\r', '\n')
             for line in text.split('\n'):
                 if self.textMode == self.TEXT_NOWRAP:
-                    output = line[:self.cols]
-                    self.header.text.append(output + ' ' * (self.cols - len(output)))
+                    output = line[:cols]
+                    self.header.text.append(output + ' ' * (cols - len(output)))
                 elif self.textMode == self.TEXT_WRAP:
-                    for i in range(0, len(line), self.cols):
-                        output = line[i:i+self.cols]
-                        self.header.text.append(output + ' ' * (self.cols - len(output)))
+                    for i in range(0, len(line), cols):
+                        output = line[i:i+cols]
+                        self.header.text.append(output + ' ' * (cols - len(output)))
             self.drawHeader()
 
         def drawHeader(self):
@@ -720,7 +724,11 @@ class TerminalTiler:
                 color_fg = self.colors.get("HEADER_FG", None)
                 color_bg = self.colors.get("HEADER_BG", None)
             row = self.hy
-            for line in self.header.text:
+            lines = self.header.text
+            cols = self.cols if self.sizeMode != self.SIZE_SCROLLING else self.cols + 2
+            if len(lines) < self.rows:
+                lines += [' ' * cols] * (self.rows - len(lines))
+            for line in lines:
                 self.write(f"\x1b[{row};{self.hx}H{line}".encode(), color_fg, color_bg)
                 row += 1
 
@@ -1410,6 +1418,7 @@ class TerminalTiler:
         def show(self, duration:float=0):
             """
             Render element for a given number of seconds.
+            Other threads are blocked from writing while the alert is shown.
 
             Args:
                 duration (float):
