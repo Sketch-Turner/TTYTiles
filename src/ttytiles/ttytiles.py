@@ -726,7 +726,7 @@ class TerminalTiler:
             row = self.hy
             lines = self.header.text
             cols = self.cols if self.sizeMode != self.SIZE_SCROLLING else self.cols + 2
-            if len(lines) < self.rows:
+            if len(lines) < self.header.rows:
                 lines += [' ' * cols] * (self.rows - len(lines))
             for line in lines:
                 self.write(f"\x1b[{row};{self.hx}H{line}".encode(), color_fg, color_bg)
