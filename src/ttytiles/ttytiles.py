@@ -1467,6 +1467,317 @@ class TerminalTiler:
                 self.visible = False
                 self.displayTile.hide()
 
+    class MessageBox:
+        """
+        A terminal UI region that displays a message and allows the user to select an option.
+        """
+        class ColorDict(dict):
+            def __init__(self, owner, subkey=None, subscribers=[]):
+                super().__init__()
+                self.owner = owner
+                self.subkey = subkey
+                self.subscribers = subscribers
+
+            def __setitem__(self, key, value):
+                super().__setitem__(key, value)
+
+                if self.subkey and key.startswith(self.subkey):
+                    for d in self.subscribers:
+                        d[key[len(self.subkey):]] = value
+
+        class Button:
+            """
+            Button
+            """
+            def __init__(self, write_func, width:int, height:int, text:str, textMode:int, border:"TerminalTiler.Border", shortcut_key:str):
+                """
+                Initialize a Button object.
+
+                Args:
+                    write_func (callable): Function used to write output to the display.
+                    width (int): Width of the tile in characters.
+                    height (int): Height of the tile in characters.
+                    text (str): Button text.
+                    textMode (int): Text rendering mode (wrap or no-wrap).
+                    border (TerminalTiler.Border): Border configuration.
+                    shortcut_key (str): TerminalTiler.Keyboard key that activates the Button.
+                """
+                self.write = write_func
+                self.text = text
+                self.shortcut_key = shortcut_key
+                self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
+                                                             x=0, # set at render
+                                                             y=0, # set at render
+                                                             width=width,
+                                                             height=height,
+                                                             visible=False,
+                                                             canFocus=False,
+                                                             textMode=textMode,
+                                                             sizeMode=TerminalTiler.DisplayTile.SIZE_FIXED,
+                                                             border=border,
+                                                             header=TerminalTiler.Header())
+
+        TEXT_NOWRAP = 0
+        TEXT_WRAP = 1
+        TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
+
+        def __init__(self, write_func, overlap_func, alert_lock:threading.RLock, exit_event:threading.Event, text:str, headerText:str, x:int, y:int, width:int, height:int, textMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+            """
+            Initialize a MessageBox display tile.
+
+            The MessageBox will be rendered on top of all other elements.
+
+            Args:
+                write_func (callable): Function used to write output to the display.
+                overlap_func (callable): Function used to query tile intersections.
+                alert_lock (threading.RLock): Active alert lock.
+                exit_event (threading.Event): Exit flag.
+                text (str): MessageBox text.
+                headerText (str): MessageBox header text.
+                x (int): X-coordinate of the tile.
+                y (int): Y-coordinate of the tile.
+                width (int): Width of the tile in characters.
+                height (int): Height of the tile in characters.
+                textMode (int): Text rendering mode (wrap or no-wrap).
+                border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
+                header (TerminalTiler.Header): Header configuration used by the underlying DisplayTile.
+            """
+            self.write = write_func
+            self.getOverlaping = overlap_func
+            self.lock = alert_lock
+            self.exit = exit_event
+            self.close = threading.Event() # user closed message
+            self.text = text
+            self.headerText = headerText
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+            self.canFocus = False
+            self.visible = False
+            self.waitTime = 0.5
+            self.buttons = []
+            self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
+                                                         x=x,
+                                                         y=y,
+                                                         width=width,
+                                                         height=height,
+                                                         visible=False,
+                                                         canFocus=False,
+                                                         textMode=textMode,
+                                                         sizeMode=TerminalTiler.DisplayTile.SIZE_FIXED,
+                                                         border=border,
+                                                         header=header)
+            # colors
+            self.colors = self.ColorDict(self, "BUTTON_")
+            # self.colors.update({
+            #     "BORDER_FG": None,
+            #     "BORDER_BG": None,
+            #     "HEADER_FG": None,
+            #     "HEADER_BG": None,
+            #     "TEXT_FG": None,
+            #     "TEXT_BG": None,
+            #     "BUTTON_BORDER_FG": None,
+            #     "BUTTON_BORDER_BG": None,
+            #     "BUTTON_TEXT_FG": None,
+            #     "BUTTON_TEXT_BG": None,
+            #     "BUTTON_BORDER_FG_F": None,
+            #     "BUTTON_BORDER_BG_F": None,
+            #     "BUTTON_TEXT_FG_F": None,
+            #     "BUTTON_TEXT_BG_F": None
+            # })
+            self.colors.update({
+                "BORDER_FG": (255,   0,   0),    # Red
+                "BORDER_BG": (  0, 255,   0),    # Green
+                "HEADER_FG": (  0,   0, 255),    # Blue
+                "HEADER_BG": (255, 255,   0),    # Yellow
+                "TEXT_FG": (255,   0, 255),      # Magenta
+                "TEXT_BG": (  0, 255, 255),      # Cyan
+                "BUTTON_BORDER_FG": (255, 128,   0),   # Orange
+                "BUTTON_BORDER_BG": (128,   0, 255),   # Purple
+                "BUTTON_TEXT_FG": (128, 255,   0),      # Lime
+                "BUTTON_TEXT_BG": (255,   0, 128),      # Pink
+                "BUTTON_BORDER_FG_F": (  0, 128, 255),  # Sky Blue
+                "BUTTON_BORDER_BG_F": (128, 128, 128),  # Gray
+                "BUTTON_TEXT_FG_F": (255, 255, 255),    # White
+                "BUTTON_TEXT_BG_F": (165,  42,  42),    # Brown
+            })
+            self.displayTile.colors = self.colors # link objects by reference
+
+        def getButtonLayoutHeight(self)->int:
+            """
+            Calculate the minimum height required to display buttons in centered
+            rows with equal horizontal spacing.
+
+            Each row has:
+                - at least 1 column between adjacent rectangles
+                - at least 1 column between the left/right edges and the rectangles
+
+            Returns:
+                int: Total layout height.
+            """
+            total_height = 0
+            row_width = 0
+            row_height = 0
+            row_count = 0
+            rows = 0
+
+            for rect in self.buttons:
+                candidate_width = row_width + rect.displayTile.width
+                candidate_count = row_count + 1
+
+                # need candidate_count + 1 gaps (left, right, between)
+                if candidate_width + candidate_count + 1 <= self.displayTile.cols:
+                    row_width = candidate_width
+                    row_height = max(row_height, rect.displayTile.height)
+                    row_count = candidate_count
+                else:
+                    total_height += row_height
+                    rows += 1
+
+                    row_width = rect.displayTile.width
+                    row_height = rect.displayTile.height
+                    row_count = 1
+
+            if row_count:
+                total_height += row_height
+                rows += 1
+
+            if rows > 1:
+                total_height += (rows - 1)
+
+            return total_height + 2
+
+        def addButton(self, width:int, height:int, text:str, textMode:int=None, borderStyle:int=None, borderChar:str=None, shortcut_key:str=None)->Button:
+            if width > self.displayTile.cols - 2:
+                raise ValueError(f"Button width exceeds MessageBox available space. ({width} > {self.displayTile.cols - 2})")
+            elif height > self.displayTile.rows - 2:
+                raise ValueError(f"Button height exceeds MessageBox available space. ({height} > {self.displayTile.rows - 2})")
+            button = self.Button(write_func=self.write,
+                                 width=width,
+                                 height=height,
+                                 text=text,
+                                 textMode=textMode,
+                                 border=TerminalTiler.Border(borderStyle, borderChar),
+                                 shortcut_key=shortcut_key)
+            self.colors.subscribers.append(button.displayTile.colors)
+            for k, v in self.colors.items():
+                if k.startswith(self.colors.subkey):
+                    button.displayTile.colors[k[len(self.colors.subkey):]] = v
+            self.buttons.append(button)
+            if self.getButtonLayoutHeight() > self.displayTile.rows:
+                raise ValueError("Unable to fit all Buttons in MessageBox available space.")
+            return button
+
+        def drawBorder(self):
+            """
+            Render border.
+            """
+            with self.lock:
+                self.displayTile.drawBorder()
+
+        def drawText(self):
+            """
+            Render MessageBox text.
+            """
+            with self.lock:
+                button_rows = self.getButtonLayoutHeight()
+                self.displayTile.text.clear()
+                self.displayTile.update(self.text + '\n' * button_rows)
+
+        def drawButtons(self):
+            rows = []
+            row = []
+            row_width = 0
+            row_height = 0
+            total_height = 0
+
+            # build rows
+            for rect in self.buttons:
+                candidate_width = row_width + rect.displayTile.width
+                candidate_count = len(row) + 1
+
+                if candidate_width + candidate_count + 1 <= self.displayTile.cols:
+                    row.append(rect)
+                    row_width = candidate_width
+                    row_height = max(row_height, rect.displayTile.height)
+                else:
+                    rows.append((row, row_width, row_height))
+                    total_height += row_height
+
+                    row = [rect]
+                    row_width = rect.displayTile.width
+                    row_height = rect.displayTile.height
+
+            if row:
+                rows.append((row, row_width, row_height))
+                total_height += row_height
+
+            total_height += len(rows) + 1
+
+            # draw buttons
+            y = 0
+            for row, row_width, row_height in rows:
+                # distribute empty space
+                total_space = self.displayTile.cols - row_width
+                gap_count = len(row) + 1
+                base = total_space // gap_count
+                extra = total_space % gap_count
+
+                gaps = [base] * gap_count
+
+                mid = (gap_count - 1) / 2
+                order = sorted(range(gap_count), key=lambda i: (abs(i - mid), i))
+
+                for i in range(extra):
+                    gaps[order[i]] += 1
+
+                # set button position and call drawing method
+                x = gaps[0]
+                for i, rect in enumerate(row):
+                    rect.displayTile.x = x + self.displayTile.tx
+                    rect.displayTile.y = y + self.displayTile.ty + (self.displayTile.rows - (total_height)) + 1
+                    rect.displayTile.tx = rect.displayTile.tx + rect.displayTile.x
+                    rect.displayTile.ty = rect.displayTile.ty + rect.displayTile.y
+
+                    rect.displayTile.drawBorder()
+                    rect.displayTile.text.clear()
+                    rect.displayTile.update(rect.text)
+
+                    x += rect.displayTile.width + gaps[i + 1]
+
+                y += row_height + 1
+
+        def handleInput(self, key:str):
+            """
+            Handles keyboard input to MessageBox.
+
+            Args:
+                key (str): Key pressed.
+            """
+            # if self.close_key and not self.close.is_set() and (key == self.close_key or self.close_key == TerminalTiler.Keyboard.KEY_ANY):
+            #     self.close.set()
+            pass
+            #TODO
+
+        def show(self):
+            """
+            Render the MessageBox.
+            While the MessageBox is visible, other threads are blocked from writing to the terminal.
+            """
+            if len(self.buttons) > 0:
+                with self.lock:
+                    self.close.clear()
+                    self.visible = True
+                    self.displayTile.visible = True
+                    self.displayTile.write("\033[?25l".encode())  # hide cursor
+                    self.displayTile.drawBorder()
+                    if self.displayTile.header:
+                        self.displayTile.header.text.clear()
+                        self.displayTile.updateHeader(self.headerText)
+                        # raise(ValueError(self.displayTile.header.text, self.headerText))
+                    self.drawText()
+                    self.drawButtons()
 
         def hide(self):
             """
@@ -1699,6 +2010,55 @@ class TerminalTiler:
                                    textMode=textMode,
                                    border=TerminalTiler.Border(borderStyle, borderChar), 
                                    text=text)
+        self.tiles.append(tile)
+        return tile
+
+    def addMessageBox(self, x:int, y:int, width:int, height:int, text:str="", textMode:int=None, borderStyle:int=None, borderChar:str=None, headerText="", headerLines:int=0, headerMode:int=None, headerBorder:bool=False)->MessageBox:
+        """
+        Creates and registers a new MessageBox in the terminal layout.
+
+        Performs boundary validation against the terminal size to ensure
+        the tile fits within the visible viewport. Then constructs a MessageBox
+        instance with the specified border and header configuration stores it in self.tiles[].
+
+        Args:
+            x (int): MessageBox origin column (1-based).
+            y (int): MessageBox origin row (1-based).
+            width (int): MessageBox width in characters.
+            height (int): MessageBox height in rows.
+            text (str): MessageBox text.
+            textMode (int, optional): TEXT_WRAP or TEXT_NOWRAP.
+            borderStyle (int, optional): Border style constant.
+            borderChar (str, optional): Custom border character.
+            headerText (str, optional): MessageBox header text.
+            headerLines (int, optional): Number of header rows.
+            headerMode (int, optional): Header text mode.
+            headerBorder (bool): Whether header has its own border.
+
+        Returns:
+            MessageBox: MessageBox object.
+        """
+        #check dimensions
+        if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
+            raise ValueError("MessageBox origin is not contained by terminal")
+        elif x + width - 1 > self.cols:
+            raise ValueError(f"MessageBox exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
+        elif y + height - 1 > self.rows:
+            raise ValueError(f"MessageBox exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
+
+        tile = TerminalTiler.MessageBox(write_func=self._write, 
+                                        overlap_func=self._getIntersectingElements,
+                                        alert_lock=self.alert, 
+                                        exit_event=self.exit,
+                                        text=text,
+                                        headerText=headerText,
+                                        x=x, 
+                                        y=y, 
+                                        width=width,
+                                        height=height, 
+                                        textMode=textMode,
+                                        border=TerminalTiler.Border(borderStyle, borderChar), 
+                                        header=TerminalTiler.Header(headerLines, headerMode, headerBorder))
         self.tiles.append(tile)
         return tile
 
