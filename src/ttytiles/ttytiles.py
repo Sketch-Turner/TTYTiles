@@ -1200,30 +1200,17 @@ class TerminalTiler:
             to the left, right, or overlaid on top of the bar.
 
             Args:
-                write_func (callable):
-                    Function used to write output to the display.
-                max (int):
-                    Maximum progress value representing 100% completion.
-                x (int):
-                    X-coordinate of the tile.
-                y (int):
-                    Y-coordinate of the tile.
-                width (int):
-                    Width of the tile in characters.
-                height (int):
-                    Height of the tile in characters.
-                visible (bool):
-                    Whether the tile is initially visible.
-                border (TerminalTiler.Border):
-                    Border configuration used by the underlying DisplayTile.
-                barChar (str):
-                    Character used to draw the filled portion of the progress bar.
-                barLeft (str, optional):
-                    Character or string displayed at the left edge of the bar.
-                    Defaults to "".
-                barRight (str, optional):
-                    Character or string displayed at the right edge of the bar.
-                    Defaults to "".
+                write_func (callable): Function used to write output to the display.
+                max (int): Maximum progress value representing 100% completion.
+                x (int): X-coordinate of the tile.
+                y (int): Y-coordinate of the tile.
+                width (int): Width of the tile in characters.
+                height (int): Height of the tile in characters.
+                visible (bool): Whether the tile is initially visible.
+                border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
+                barChar (str): Character used to draw the filled portion of the progress bar.
+                barLeft (str, optional): Character or string displayed at the left edge of the bar. Defaults to "".
+                barRight (str, optional): Character or string displayed at the right edge of the bar. Defaults to "".
             """
             self.max = max
             self.value = 0
@@ -1340,35 +1327,26 @@ class TerminalTiler:
             """
             Initialize a Alert display tile.
 
-            The Alert will be rendered over all other elements.
+            The Alert will be rendered on top of all other elements.
 
             Args:
-                write_func (callable):
-                    Function used to write output to the display.
-                overlap_func (callable):
-                    Function used to query tile intersections.
-                alert_lock (threading.RLock):
-                    Active alert lock.
-                exit_event (threading.Event): 
-                    Exit flag.
-                text (str):
-                    Alert text.
-                x (int):
-                    X-coordinate of the tile.
-                y (int):
-                    Y-coordinate of the tile.
-                width (int):
-                    Width of the tile in characters.
-                height (int):
-                    Height of the tile in characters.
-                textMode (int):
-                    Text rendering mode (wrap or no-wrap).
-                border (TerminalTiler.Border):
-                    Border configuration used by the underlying DisplayTile.
+                write_func (callable): Function used to write output to the display.
+                overlap_func (callable): Function used to query tile intersections.
+                alert_lock (threading.RLock): Active alert lock.
+                exit_event (threading.Event): Exit flag.
+                text (str): Alert text.
+                x (int): X-coordinate of the tile.
+                y (int): Y-coordinate of the tile.
+                width (int): Width of the tile in characters.
+                height (int): Height of the tile in characters.
+                textMode (int): Text rendering mode (wrap or no-wrap).
+                border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
             """
-            self.getOverlaps = overlap_func
+            self.getOverlaping = overlap_func
             self.lock = alert_lock
             self.exit = exit_event
+            self.close = threading.Event() # user closed alert
+            self.close_key = None
             self.text = text
             self.x = x
             self.y = y
@@ -1376,6 +1354,7 @@ class TerminalTiler:
             self.height = height
             self.canFocus = False
             self.visible = False
+            self.waitTime = 0.5
             self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
                                                          x=x,
                                                          y=y,
@@ -1409,41 +1388,85 @@ class TerminalTiler:
 
         def drawText(self):
             """
-            Render alert text.
+            Render Alert text.
             """
             with self.lock:
                 self.displayTile.text.clear()
                 self.displayTile.update(self.text)
 
-        def show(self, duration:float=0):
+        def handleInput(self, key:str):
             """
-            Render element for a given number of seconds.
-            Other threads are blocked from writing while the alert is shown.
+            Handles keyboard input to Alert.
+
+            Args:
+                key (str): Key pressed.
+            """
+            if self.close_key and not self.close.is_set() and (key == self.close_key or self.close_key == TerminalTiler.Keyboard.KEY_ANY):
+                self.close.set()
+
+        def show(self, duration: float = 0, close_key: str = None):
+            """
+            Render the Alert for a specified duration.
+            While the alert is visible, other threads are blocked from writing to the terminal.
 
             Args:
                 duration (float):
-                    Number of seconds to display alert.
+                    Number of seconds to display the alert.
+                    If duration < 0, the alert remains visible until `close_key` is pressed.
+
+                close_key (str):
+                    TerminalTiler.Keyboard key that closes the alert.
+                    If `duration < 0` and `close_key` is `None`,
+                    TerminalTiler.Keyboard.KEY_ANY is used.
             """
-            if duration > 0:
-                with self.lock:
-                    self.visible = True
-                    self.displayTile.visible = True
-                    self.displayTile.write("\033[?25l".encode()) # hide cursor
-                    self.displayTile.drawBorder()
-                    self.displayTile.text.clear()
-                    self.displayTile.update(self.text)
-                    while not self.exit.is_set():
-                        if duration >= 1:
-                            duration -= 1
-                            time.sleep(1)
-                        else:
-                            time.sleep(duration)
-                            self.displayTile.hide()
-                            # restore tiles under alert
-                            for tile in self.getOverlaps(self):
-                                if tile.visible:
-                                    tile.show()
-                            break
+            if duration < 0 and close_key is None:
+                close_key = TerminalTiler.Keyboard.KEY_ANY
+
+            with self.lock:
+                self.close_key = close_key
+                self.close.clear()
+
+                self.visible = True
+                self.displayTile.visible = True
+                self.displayTile.write("\033[?25l".encode())  # hide cursor
+                self.displayTile.drawBorder()
+                self.displayTile.text.clear()
+                self.displayTile.update(self.text)
+
+                remaining = duration
+
+                while not self.exit.is_set() and not self.close.is_set():
+
+                    # indefinite display
+                    if duration < 0:
+                        time.sleep(self.waitTime)
+                        continue
+
+                    # timed display
+                    if remaining <= 0:
+                        break
+
+                    sleep_time = min(self.waitTime, remaining)
+                    time.sleep(sleep_time)
+                    remaining -= sleep_time
+
+                self.hide()
+                self.close_key = None
+                self.close.set()
+
+                # restore any tiles hidden beneath the alert
+                for tile in self.getOverlaping(self):
+                    if tile.visible:
+                        tile.show()
+
+        def hide(self):
+            """
+            Hide element.
+            """
+            with self.lock:
+                self.visible = False
+                self.displayTile.hide()
+
 
         def hide(self):
             """
@@ -1704,7 +1727,7 @@ class TerminalTiler:
         if key == TerminalTiler.Keyboard.KEY_CTRL_C:
             self.close()
 
-        # if alert is active, drop input
+        # if alert is not active, handle input
         elif self.alert.acquire(blocking=False):
             if (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY) and self.waiting:
                 self.waiting = False
@@ -1736,6 +1759,12 @@ class TerminalTiler:
                     self.tiles[self.focusedIndex].handleInput(key)
 
             self.alert.release()
+        # if alert is active, send input to alert
+        else:
+            for t in self.tiles:
+                if t.visible and isinstance(t, self.Alert):
+                    t.handleInput(key)
+                    break
 
     def clearScreen(self):
         """
@@ -1801,15 +1830,15 @@ class TerminalTiler:
             # kill threads
             self.stdout_FDI.close()
 
-    def waitForKey(self, key:str, waitTime:int=1):
+    def waitForKey(self, key:str, waitTime:float=0.5):
         """
         Blocks current thread until the specified key is pressed.
 
         Args:
             key (str):
                 Value stored in self.waitKey.
-            waitTime (int, optional):
-                Number of seconds to wait between status checks. Default: 1
+            waitTime (float, optional):
+                Number of seconds to wait between status checks. Default: 0.5
         """
         self.waitKey = key
         self.waiting = True
