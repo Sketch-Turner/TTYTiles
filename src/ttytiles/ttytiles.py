@@ -1575,37 +1575,21 @@ class TerminalTiler:
                                                          header=header)
             # colors
             self.colors = self.ColorDict(self, "BUTTON_")
-            # self.colors.update({
-            #     "BORDER_FG": None,
-            #     "BORDER_BG": None,
-            #     "HEADER_FG": None,
-            #     "HEADER_BG": None,
-            #     "TEXT_FG": None,
-            #     "TEXT_BG": None,
-            #     "BUTTON_BORDER_FG": None,
-            #     "BUTTON_BORDER_BG": None,
-            #     "BUTTON_TEXT_FG": None,
-            #     "BUTTON_TEXT_BG": None,
-            #     "BUTTON_BORDER_FG_F": None,
-            #     "BUTTON_BORDER_BG_F": None,
-            #     "BUTTON_TEXT_FG_F": None,
-            #     "BUTTON_TEXT_BG_F": None
-            # })
             self.colors.update({
-                "BORDER_FG": (255,   0,   0),    # Red
-                "BORDER_BG": (  0, 255,   0),    # Green
-                "HEADER_FG": (  0,   0, 255),    # Blue
-                "HEADER_BG": (255, 255,   0),    # Yellow
-                "TEXT_FG": (255,   0, 255),      # Magenta
-                "TEXT_BG": (  0, 255, 255),      # Cyan
-                "BUTTON_BORDER_FG": (255, 128,   0),   # Orange
-                "BUTTON_BORDER_BG": (128,   0, 255),   # Purple
-                "BUTTON_TEXT_FG": (128, 255,   0),      # Lime
-                "BUTTON_TEXT_BG": (255,   0, 128),      # Pink
-                "BUTTON_BORDER_FG_F": (  0, 128, 255),  # Sky Blue
-                "BUTTON_BORDER_BG_F": (128, 128, 128),  # Gray
-                "BUTTON_TEXT_FG_F": (255, 255, 255),    # White
-                "BUTTON_TEXT_BG_F": (165,  42,  42),    # Brown
+                "BORDER_FG": None,
+                "BORDER_BG": None,
+                "HEADER_FG": None,
+                "HEADER_BG": None,
+                "TEXT_FG": None,
+                "TEXT_BG": None,
+                "BUTTON_BORDER_FG": None,
+                "BUTTON_BORDER_BG": None,
+                "BUTTON_TEXT_FG": None,
+                "BUTTON_TEXT_BG": None,
+                "BUTTON_BORDER_FG_F": None,
+                "BUTTON_BORDER_BG_F": None,
+                "BUTTON_TEXT_FG_F": None,
+                "BUTTON_TEXT_BG_F": None
             })
             self.displayTile.colors = self.colors # link objects by reference
 
@@ -1783,6 +1767,12 @@ class TerminalTiler:
                 self.value = self.buttons[self.focusedIndex].value
                 self.close.set()
 
+            else:
+                for button in self.buttons:
+                    if key == button.shortcut_key:
+                        self.value = button.value
+                        self.close.set()
+                        break
 
         def show(self):
             """
