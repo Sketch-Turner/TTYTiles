@@ -1323,7 +1323,7 @@ class TerminalTiler:
         TEXT_NOWRAP = 0
         TEXT_WRAP = 1
         TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
-        def __init__(self, write_func, overlap_func, alert_lock:threading.RLock, exit_event:threading.Event, text:str, x:int, y:int, width:int, height:int, textMode:int, border:"TerminalTiler.Border"):
+        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, x:int, y:int, width:int, height:int, textMode:int, border:"TerminalTiler.Border"):
             """
             Initialize a Alert display tile.
 
@@ -1332,7 +1332,7 @@ class TerminalTiler:
             Args:
                 write_func (callable): Function used to write output to the display.
                 overlap_func (callable): Function used to query tile intersections.
-                alert_lock (threading.RLock): Active alert lock.
+                popup_lock (threading.RLock): Active alert lock.
                 exit_event (threading.Event): Exit flag.
                 text (str): Alert text.
                 x (int): X-coordinate of the tile.
@@ -1343,7 +1343,7 @@ class TerminalTiler:
                 border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
             """
             self.getOverlaping = overlap_func
-            self.lock = alert_lock
+            self.lock = popup_lock
             self.exit = exit_event
             self.close = threading.Event() # user closed alert
             self.close_key = None
@@ -1489,12 +1489,13 @@ class TerminalTiler:
             """
             Button
             """
-            def __init__(self, write_func, width:int, height:int, text:str, textMode:int, border:"TerminalTiler.Border", shortcut_key:str):
+            def __init__(self, write_func, value, width:int, height:int, text:str, textMode:int, border:"TerminalTiler.Border", shortcut_key:str):
                 """
                 Initialize a Button object.
 
                 Args:
                     write_func (callable): Function used to write output to the display.
+                    value (any): Value returned when Button is pressed.
                     width (int): Width of the tile in characters.
                     height (int): Height of the tile in characters.
                     text (str): Button text.
@@ -1505,6 +1506,7 @@ class TerminalTiler:
                 self.write = write_func
                 self.text = text
                 self.shortcut_key = shortcut_key
+                self.value = value
                 self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
                                                              x=0, # set at render
                                                              y=0, # set at render
@@ -1521,7 +1523,7 @@ class TerminalTiler:
         TEXT_WRAP = 1
         TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
 
-        def __init__(self, write_func, overlap_func, alert_lock:threading.RLock, exit_event:threading.Event, text:str, headerText:str, x:int, y:int, width:int, height:int, textMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, headerText:str, x:int, y:int, width:int, height:int, textMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             """
             Initialize a MessageBox display tile.
 
@@ -1530,7 +1532,7 @@ class TerminalTiler:
             Args:
                 write_func (callable): Function used to write output to the display.
                 overlap_func (callable): Function used to query tile intersections.
-                alert_lock (threading.RLock): Active alert lock.
+                popup_lock (threading.RLock): Active alert lock.
                 exit_event (threading.Event): Exit flag.
                 text (str): MessageBox text.
                 headerText (str): MessageBox header text.
@@ -1544,9 +1546,10 @@ class TerminalTiler:
             """
             self.write = write_func
             self.getOverlaping = overlap_func
-            self.lock = alert_lock
+            self.lock = popup_lock
             self.exit = exit_event
             self.close = threading.Event() # user closed message
+            self.input = threading.Event() # user input
             self.text = text
             self.headerText = headerText
             self.x = x
@@ -1555,8 +1558,10 @@ class TerminalTiler:
             self.height = height
             self.canFocus = False
             self.visible = False
-            self.waitTime = 0.5
+            self.waitTime = 0.1
             self.buttons = []
+            self.focusedIndex = -1 # focused button index
+            self.value = None
             self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
                                                          x=x,
                                                          y=y,
@@ -1648,12 +1653,13 @@ class TerminalTiler:
 
             return total_height + 2
 
-        def addButton(self, width:int, height:int, text:str, textMode:int=None, borderStyle:int=None, borderChar:str=None, shortcut_key:str=None)->Button:
+        def addButton(self, value, width:int, height:int, text:str, textMode:int=None, borderStyle:int=None, borderChar:str=None, shortcut_key:str=None)->Button:
             if width > self.displayTile.cols - 2:
                 raise ValueError(f"Button width exceeds MessageBox available space. ({width} > {self.displayTile.cols - 2})")
             elif height > self.displayTile.rows - 2:
                 raise ValueError(f"Button height exceeds MessageBox available space. ({height} > {self.displayTile.rows - 2})")
             button = self.Button(write_func=self.write,
+                                 value=value,
                                  width=width,
                                  height=height,
                                  text=text,
@@ -1737,8 +1743,9 @@ class TerminalTiler:
                 for i, rect in enumerate(row):
                     rect.displayTile.x = x + self.displayTile.tx
                     rect.displayTile.y = y + self.displayTile.ty + (self.displayTile.rows - (total_height)) + 1
-                    rect.displayTile.tx = rect.displayTile.tx + rect.displayTile.x
-                    rect.displayTile.ty = rect.displayTile.ty + rect.displayTile.y
+
+                    rect.displayTile.tx = rect.displayTile.x if rect.displayTile.border.style == TerminalTiler.Border.NO_BORDER else rect.displayTile.x + 1
+                    rect.displayTile.ty = rect.displayTile.y if rect.displayTile.border.style == TerminalTiler.Border.NO_BORDER else rect.displayTile.y + 1
 
                     rect.displayTile.drawBorder()
                     rect.displayTile.text.clear()
@@ -1755,18 +1762,41 @@ class TerminalTiler:
             Args:
                 key (str): Key pressed.
             """
-            # if self.close_key and not self.close.is_set() and (key == self.close_key or self.close_key == TerminalTiler.Keyboard.KEY_ANY):
-            #     self.close.set()
-            pass
-            #TODO
+            # handle tab
+            if key == TerminalTiler.Keyboard.KEY_TAB:
+                # clear old focus
+                if 0 <= self.focusedIndex and self.focusedIndex < len(self.buttons):
+                    self.buttons[self.focusedIndex].displayTile.focused = False
+
+                # move forward
+                self.focusedIndex += 1
+
+                # apply or reset
+                if self.focusedIndex < len(self.buttons):
+                    self.buttons[self.focusedIndex].displayTile.focused = True
+                else:
+                    self.focusedIndex = -1
+                
+                self.input.set()
+
+            elif key == TerminalTiler.Keyboard.KEY_ENTER:
+                self.value = self.buttons[self.focusedIndex].value
+                self.close.set()
+
 
         def show(self):
             """
             Render the MessageBox.
             While the MessageBox is visible, other threads are blocked from writing to the terminal.
+
+            Returns:
+                Button.value from selected Button.
             """
             if len(self.buttons) > 0:
                 with self.lock:
+                    self.buttons[self.focusedIndex].displayTile.focused = False
+                    self.focusedIndex = -1
+                    self.value = None
                     self.close.clear()
                     self.visible = True
                     self.displayTile.visible = True
@@ -1775,9 +1805,22 @@ class TerminalTiler:
                     if self.displayTile.header:
                         self.displayTile.header.text.clear()
                         self.displayTile.updateHeader(self.headerText)
-                        # raise(ValueError(self.displayTile.header.text, self.headerText))
                     self.drawText()
                     self.drawButtons()
+
+                    # wait for button press
+                    while not self.exit.is_set() and not self.close.is_set():
+                        if self.input.is_set():
+                            self.drawButtons()
+                            self.input.clear()
+                        time.sleep(self.waitTime)
+
+                    self.hide()
+                    # restore any tiles hidden beneath the alert
+                    for tile in self.getOverlaping(self):
+                        if tile.visible:
+                            tile.show()
+                return self.value
 
         def hide(self):
             """
@@ -1786,6 +1829,9 @@ class TerminalTiler:
             with self.lock:
                 self.visible = False
                 self.displayTile.hide()
+
+    class Table:
+        pass
 
     class SIGINT(Exception):
         """
@@ -1805,7 +1851,7 @@ class TerminalTiler:
         if os.name == "nt":
             os.system("chcp 65001 > nul") #switch to unicode charset
         self.lock = threading.Lock() # write lock
-        self.alert = threading.RLock() # alert lock
+        self.popup = threading.RLock() # popup lock
         self.exit = threading.Event()
         self.cols, self.rows = os.get_terminal_size()
         self.focusedIndex = -1 # index of active element
@@ -2001,7 +2047,7 @@ class TerminalTiler:
 
         tile = TerminalTiler.Alert(write_func=self._write, 
                                    overlap_func=self._getIntersectingElements,
-                                   alert_lock=self.alert, 
+                                   popup_lock=self.popup, 
                                    exit_event=self.exit,
                                    x=x, 
                                    y=y, 
@@ -2048,7 +2094,7 @@ class TerminalTiler:
 
         tile = TerminalTiler.MessageBox(write_func=self._write, 
                                         overlap_func=self._getIntersectingElements,
-                                        alert_lock=self.alert, 
+                                        popup_lock=self.popup, 
                                         exit_event=self.exit,
                                         text=text,
                                         headerText=headerText,
@@ -2088,7 +2134,7 @@ class TerminalTiler:
             self.close()
 
         # if alert is not active, handle input
-        elif self.alert.acquire(blocking=False):
+        elif self.popup.acquire(blocking=False):
             if (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY) and self.waiting:
                 self.waiting = False
 
@@ -2118,11 +2164,11 @@ class TerminalTiler:
                 if self.focusedIndex >= 0:
                     self.tiles[self.focusedIndex].handleInput(key)
 
-            self.alert.release()
-        # if alert is active, send input to alert
+            self.popup.release()
+        # if popup is active, send input to popup element
         else:
             for t in self.tiles:
-                if t.visible and isinstance(t, self.Alert):
+                if t.visible and (isinstance(t, self.Alert) or isinstance(t, self.MessageBox)):
                     t.handleInput(key)
                     break
 
@@ -2155,8 +2201,8 @@ class TerminalTiler:
         """
         # check if threads are exiting
         if self.isAlive():
-            # check if alert is active
-            with self.alert:
+            # check if popup is active
+            with self.popup:
                 # check if another thread is writing
                 with self.lock:
                     # fg
