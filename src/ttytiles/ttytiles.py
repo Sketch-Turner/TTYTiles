@@ -300,9 +300,6 @@ class TerminalTiler:
         terminal-style header rendering, with optional text wrapping
         and border support.
         """
-        TEXT_NOWRAP = 0
-        TEXT_WRAP = 1
-        TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
 
         def __init__(self, lines:int=0, textMode:int=0, hasBorder:bool=False):
             """
@@ -310,10 +307,10 @@ class TerminalTiler:
 
             Args:
                 lines (int): Maximum number of text rows stored.
-                textMode (int): Text handling mode (TEXT_NOWRAP or TEXT_WRAP).
+                textMode (int): Text handling mode (Style.Wrap.NOWRAP or Style.Wrap.WRAP).
                 hasBorder (bool): Render border between header and text.
             """
-            self.textMode = self.textMode = textMode if textMode in self.TEXT_MODES else self.TEXT_NOWRAP
+            self.textMode = self.textMode = textMode if textMode in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
             self.hasBorder = hasBorder
 
             # text
@@ -460,18 +457,50 @@ class TerminalTiler:
             """
             return self.charset.cornerSW + self.charset.lineH * (width - 2) + self.charset.cornerSE
 
+    class Style:
+        class Wrap:
+            """
+            Text wrapping.
+
+            STYLES:
+            - WRAP
+            - NOWRAP
+            """
+            NOWRAP = 0
+            WRAP = 1
+            STYLES = {NOWRAP, WRAP}
+
+        class Justify:
+            """
+            Text justification.
+
+            STYLES:
+            - LJUST
+            - CENTERED
+            - RJUST
+            """
+            LJUST = 0
+            CENTERED = 1
+            RJUST = 2
+            STYLES = {LJUST, CENTERED, RJUST}
+
+        class Display:
+            """
+            Text display.
+
+            STYLES:
+            - FIXED
+            - SCROLLING
+            """
+            FIXED = 0
+            SCROLLING = 1
+            STYLES = {FIXED, SCROLLING}
+
     class DisplayTile:
         """
         A terminal UI region that renders a bordered rectangular tile
         with an optional header and scrollable/wrappable text buffer.
         """
-        TEXT_NOWRAP = 0
-        TEXT_WRAP = 1
-        TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
-        SIZE_FIXED = 0
-        SIZE_SCROLLING = 1
-        SIZE_MODES = {SIZE_FIXED, SIZE_SCROLLING}
-
         def __init__(self, writer_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textMode:int, sizeMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             """
             Initializes a DisplayTile UI component that represents a bordered
@@ -493,8 +522,8 @@ class TerminalTiler:
             self.y = y #row
             self.width = width 
             self.height = height 
-            self.textMode = textMode if textMode in self.TEXT_MODES else self.TEXT_NOWRAP
-            self.sizeMode = sizeMode if sizeMode in self.SIZE_MODES else self.SIZE_FIXED
+            self.textMode = textMode if textMode in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
+            self.sizeMode = sizeMode if sizeMode in TerminalTiler.Style.Display.STYLES else TerminalTiler.Style.Display.FIXED
             self.border = border
             self.header = header
             self.write = writer_func
@@ -533,10 +562,10 @@ class TerminalTiler:
                 self.ty += 1
                 self.rows -= 1
 
-            if self.sizeMode == self.SIZE_SCROLLING:
+            if self.sizeMode == TerminalTiler.Style.Display.SCROLLING:
                 self.cols -= 2
 
-            if self.sizeMode == self.SIZE_FIXED:
+            if self.sizeMode == TerminalTiler.Style.Display.FIXED:
                 self.text = deque(maxlen=self.rows)
             else:
                 self.text = []
@@ -572,7 +601,7 @@ class TerminalTiler:
                 self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode(), color_fg, color_bg)
             self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode(), color_fg, color_bg)
 
-            if self.sizeMode == self.SIZE_SCROLLING:
+            if self.sizeMode == TerminalTiler.Style.Display.SCROLLING:
                 self.drawScrollbarBorder()
                 self.drawScrollbar()
 
@@ -676,11 +705,11 @@ class TerminalTiler:
             """
             text = str(text).replace('\r\n', '\n').replace('\r', '\n')
             for line in text.split('\n'):
-                if self.textMode == self.TEXT_NOWRAP:
+                if self.textMode == TerminalTiler.Style.Wrap.NOWRAP:
                     output = line[:self.cols]
                     self.text.append(output + ' ' * (self.cols - len(output)))
                     self.tIndex = len(self.text) - 1
-                elif self.textMode == self.TEXT_WRAP:
+                elif self.textMode == TerminalTiler.Style.Wrap.WRAP:
                     for i in range(0, len(line), self.cols):
                         output = line[i:i+self.cols]
                         self.text.append(output + ' ' * (self.cols - len(output)))
@@ -690,7 +719,7 @@ class TerminalTiler:
             self.drawText()
 
             # update scrollbar position
-            if self.sizeMode == self.SIZE_SCROLLING:
+            if self.sizeMode == TerminalTiler.Style.Display.SCROLLING:
                 self.drawScrollbar()
 
         def updateHeader(self, text:str):
@@ -701,13 +730,13 @@ class TerminalTiler:
             Args:
                 text (str): Text to add to text buffer.
             """
-            cols = self.cols if self.sizeMode != self.SIZE_SCROLLING else self.cols + 2
+            cols = self.cols if self.sizeMode != TerminalTiler.Style.Display.SCROLLING else self.cols + 2
             text = str(text).replace('\r\n', '\n').replace('\r', '\n')
             for line in text.split('\n'):
-                if self.textMode == self.TEXT_NOWRAP:
+                if self.textMode == TerminalTiler.Style.Wrap.NOWRAP:
                     output = line[:cols]
                     self.header.text.append(output + ' ' * (cols - len(output)))
-                elif self.textMode == self.TEXT_WRAP:
+                elif self.textMode == TerminalTiler.Style.Wrap.WRAP:
                     for i in range(0, len(line), cols):
                         output = line[i:i+cols]
                         self.header.text.append(output + ' ' * (cols - len(output)))
@@ -725,7 +754,7 @@ class TerminalTiler:
                 color_bg = self.colors.get("HEADER_BG", None)
             row = self.hy
             lines = self.header.text
-            cols = self.cols if self.sizeMode != self.SIZE_SCROLLING else self.cols + 2
+            cols = self.cols if self.sizeMode != TerminalTiler.Style.Display.SCROLLING else self.cols + 2
             if len(lines) < self.header.rows:
                 lines += [' ' * cols] * (self.rows - len(lines))
             for line in lines:
@@ -739,7 +768,7 @@ class TerminalTiler:
             Args:
                 key (str): Key pressed.
             """
-            if self.sizeMode == self.SIZE_SCROLLING:
+            if self.sizeMode == TerminalTiler.Style.Display.SCROLLING:
                 if key == TerminalTiler.Keyboard.KEY_UP:
                     top = max(0, min(self.tIndex, len(self.text) - self.rows))
                     if top > 0:
@@ -1233,8 +1262,8 @@ class TerminalTiler:
                                         height=height,
                                         visible=visible,
                                         canFocus=False,
-                                        textMode=TerminalTiler.DisplayTile.TEXT_NOWRAP,
-                                        sizeMode=TerminalTiler.DisplayTile.SIZE_FIXED,
+                                        textMode=TerminalTiler.Style.Wrap.NOWRAP,
+                                        sizeMode=TerminalTiler.Style.Display.FIXED,
                                         border=border,
                                         header=TerminalTiler.Header())
             # colors
@@ -1320,9 +1349,6 @@ class TerminalTiler:
         """
         A terminal UI region that displays a message for a set time.
         """
-        TEXT_NOWRAP = 0
-        TEXT_WRAP = 1
-        TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
         def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, x:int, y:int, width:int, height:int, textMode:int, border:"TerminalTiler.Border"):
             """
             Initialize a Alert display tile.
@@ -1363,7 +1389,7 @@ class TerminalTiler:
                                                          visible=False,
                                                          canFocus=False,
                                                          textMode=textMode,
-                                                         sizeMode=TerminalTiler.DisplayTile.SIZE_FIXED,
+                                                         sizeMode=TerminalTiler.Style.Display.FIXED,
                                                          border=border,
                                                          header=TerminalTiler.Header())
             # colors
@@ -1515,13 +1541,9 @@ class TerminalTiler:
                                                              visible=False,
                                                              canFocus=False,
                                                              textMode=textMode,
-                                                             sizeMode=TerminalTiler.DisplayTile.SIZE_FIXED,
+                                                             sizeMode=TerminalTiler.Style.Display.FIXED,
                                                              border=border,
                                                              header=TerminalTiler.Header())
-
-        TEXT_NOWRAP = 0
-        TEXT_WRAP = 1
-        TEXT_MODES = {TEXT_NOWRAP, TEXT_WRAP}
 
         def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, headerText:str, x:int, y:int, width:int, height:int, textMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             """
@@ -1570,7 +1592,7 @@ class TerminalTiler:
                                                          visible=False,
                                                          canFocus=False,
                                                          textMode=textMode,
-                                                         sizeMode=TerminalTiler.DisplayTile.SIZE_FIXED,
+                                                         sizeMode=TerminalTiler.Style.Display.FIXED,
                                                          border=border,
                                                          header=header)
             # colors
@@ -1879,8 +1901,8 @@ class TerminalTiler:
             height (int): DisplayTile height in rows.
             visible (bool): Show DisplayTile?
             canFocus (bool): Can this be focused?
-            textMode (int, optional): TEXT_WRAP or TEXT_NOWRAP.
-            sizeMode (int, optional): SIZE_FIXED or SIZE_SCROLLING.
+            textMode (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            sizeMode (int, optional): Style.Display.FIXED or Style.Display.SCROLLING.
             borderStyle (int, optional): Border style constant.
             borderChar (str, optional): Custom border character.
             headerLines (int): Number of header rows.
@@ -2019,7 +2041,7 @@ class TerminalTiler:
             y (int): Alert origin row (1-based).
             width (int): Alert width in characters.
             height (int): InputTile height in rows.
-            textMode (int, optional): TEXT_WRAP or TEXT_NOWRAP.
+            textMode (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
             borderStyle (int, optional): Border style constant.
             borderChar (str, optional): Custom bar character.
             text (str, optional): Alert text.
@@ -2063,7 +2085,7 @@ class TerminalTiler:
             width (int): MessageBox width in characters.
             height (int): MessageBox height in rows.
             text (str): MessageBox text.
-            textMode (int, optional): TEXT_WRAP or TEXT_NOWRAP.
+            textMode (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
             borderStyle (int, optional): Border style constant.
             borderChar (str, optional): Custom border character.
             headerText (str, optional): MessageBox header text.
