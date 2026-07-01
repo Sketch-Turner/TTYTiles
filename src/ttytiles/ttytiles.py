@@ -301,16 +301,18 @@ class TerminalTiler:
         and border support.
         """
 
-        def __init__(self, lines:int=0, textWrap:int=0, hasBorder:bool=False):
+        def __init__(self, lines:int=0, textWrap:int=0, textJust:int=0, hasBorder:bool=False):
             """
             Initializes the header buffer and display configuration.
 
             Args:
                 lines (int): Maximum number of text rows stored.
-                textWrap (int): Text handling mode (Style.Wrap.NOWRAP or Style.Wrap.WRAP).
-                hasBorder (bool): Render border between header and text.
+                textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                hasBorder (bool): Render border between header and text?
             """
-            self.textWrap = self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
+            self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
+            self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else -1
             self.hasBorder = hasBorder
 
             # text
@@ -501,7 +503,7 @@ class TerminalTiler:
         A terminal UI region that renders a bordered rectangular tile
         with an optional header and scrollable/wrappable text buffer.
         """
-        def __init__(self, write_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap:int, sizeMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+        def __init__(self, write_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap:int, textJust:int, sizeMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             """
             Initializes a DisplayTile UI component that represents a bordered
             terminal region with an optional header and scrollable text buffer.
@@ -514,7 +516,9 @@ class TerminalTiler:
                 height (int): Total height of the tile including borders.
                 visible (bool): Should the item be rendered?
                 canFocus (bool): Can the item be focused?
-                textWrap (int): Text rendering mode (wrap or no-wrap).
+                textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                sizeMode (int): Text buffer sizing. Style.Size.FIXED or Style.Size.SCROLLING.
                 border (TerminalTiler.Border): Border style/renderer instance.
                 header (TerminalTiler.Header): Header configuration and buffer.
             """
@@ -523,6 +527,7 @@ class TerminalTiler:
             self.width = width 
             self.height = height 
             self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
+            self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST
             self.sizeMode = sizeMode if sizeMode in TerminalTiler.Style.Size.STYLES else TerminalTiler.Style.Size.FIXED
             self.border = border
             self.header = header
@@ -719,6 +724,32 @@ class TerminalTiler:
                 self.write(f"\x1b[{row};{self.tx}H{line}".encode(), color_fg, color_bg)
                 row += 1
 
+        def justify(self, text:str, textJust:int, width:int)->str:
+            """
+            Justify text within a fixed-width field.
+
+            Args:
+                text (str):
+                    The text to justify.
+                textJust (int):
+                    The justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                width (int):
+                    The total width of the output string.
+
+            Returns:
+                str:
+                    The justified string.
+            """
+            if textJust == TerminalTiler.Style.Justify.LJUST:
+                return text + ' ' * (width - len(text))
+            elif textJust == TerminalTiler.Style.Justify.CENTERED:
+                extra = width - len(text)
+                left = extra // 2
+                right = extra - left
+                return (' ' * left) + text + (' ' * right)
+            elif textJust == TerminalTiler.Style.Justify.RJUST:
+                return ' ' * (width - len(text)) + text
+
         def update(self, text:str):
             """
             Appends new text to the tile's internal buffer and renders
@@ -731,12 +762,12 @@ class TerminalTiler:
             for line in text.split('\n'):
                 if self.textWrap == TerminalTiler.Style.Wrap.NOWRAP:
                     output = line[:self.cols]
-                    self.text.append(output + ' ' * (self.cols - len(output)))
+                    self.text.append(self.justify(output, self.textJust, self.cols))
                     self.tIndex = len(self.text) - 1
                 elif self.textWrap == TerminalTiler.Style.Wrap.WRAP:
                     for i in range(0, len(line), self.cols):
                         output = line[i:i+self.cols]
-                        self.text.append(output + ' ' * (self.cols - len(output)))
+                        self.text.append(self.justify(output, self.textJust, self.cols))
                         self.tIndex += len(self.text) - 1
 
             # write text
@@ -759,11 +790,11 @@ class TerminalTiler:
             for line in text.split('\n'):
                 if self.textWrap == TerminalTiler.Style.Wrap.NOWRAP:
                     output = line[:cols]
-                    self.header.text.append(output + ' ' * (cols - len(output)))
+                    self.header.text.append(self.justify(output, self.header.textJust, cols))
                 elif self.textWrap == TerminalTiler.Style.Wrap.WRAP:
                     for i in range(0, len(line), cols):
                         output = line[i:i+cols]
-                        self.header.text.append(output + ' ' * (cols - len(output)))
+                        self.header.text.append(self.justify(output, self.header.textJust, cols))
             self.drawHeader()
 
         def drawHeader(self):
@@ -1287,6 +1318,7 @@ class TerminalTiler:
                                         visible=visible,
                                         canFocus=False,
                                         textWrap=TerminalTiler.Style.Wrap.NOWRAP,
+                                        textJust=TerminalTiler.Style.Justify.LJUST,
                                         sizeMode=TerminalTiler.Style.Size.FIXED,
                                         border=border,
                                         header=TerminalTiler.Header())
@@ -1373,7 +1405,7 @@ class TerminalTiler:
         """
         A terminal UI region that displays a message for a set time.
         """
-        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, x:int, y:int, width:int, height:int, textWrap:int, border:"TerminalTiler.Border"):
+        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, x:int, y:int, width:int, height:int, textWrap:int, textJust:int, border:"TerminalTiler.Border"):
             """
             Initialize a Alert display tile.
 
@@ -1413,6 +1445,7 @@ class TerminalTiler:
                                                          visible=False,
                                                          canFocus=False,
                                                          textWrap=textWrap,
+                                                         textJust=textJust,
                                                          sizeMode=TerminalTiler.Style.Size.FIXED,
                                                          border=border,
                                                          header=TerminalTiler.Header())
@@ -1539,7 +1572,7 @@ class TerminalTiler:
             """
             Button
             """
-            def __init__(self, write_func, value, width:int, height:int, text:str, textWrap:int, border:"TerminalTiler.Border", shortcut_key:str):
+            def __init__(self, write_func, value, width:int, height:int, text:str, textWrap:int, textJust:int, border:"TerminalTiler.Border", shortcut_key:str):
                 """
                 Initialize a Button object.
 
@@ -1565,11 +1598,12 @@ class TerminalTiler:
                                                              visible=False,
                                                              canFocus=False,
                                                              textWrap=textWrap,
+                                                             textJust=textJust,
                                                              sizeMode=TerminalTiler.Style.Size.FIXED,
                                                              border=border,
                                                              header=TerminalTiler.Header())
 
-        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, headerText:str, x:int, y:int, width:int, height:int, textWrap:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, headerText:str, x:int, y:int, width:int, height:int, textWrap:int, textJust:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             """
             Initialize a MessageBox display tile.
 
@@ -1616,6 +1650,7 @@ class TerminalTiler:
                                                          visible=False,
                                                          canFocus=False,
                                                          textWrap=textWrap,
+                                                         textJust=textJust,
                                                          sizeMode=TerminalTiler.Style.Size.FIXED,
                                                          border=border,
                                                          header=header)
@@ -1901,12 +1936,20 @@ class TerminalTiler:
                                                              visible=False,
                                                              canFocus=False,
                                                              textWrap=textWrap,
-                                                            #  textJust=textJust,
+                                                             textJust=textJust,
                                                              sizeMode=TerminalTiler.Style.Size.FIXED,
                                                              border=TerminalTiler.Border(),
                                                              header=TerminalTiler.Header())
 
             def update(self, text:str):
+                """
+                Update the cell's displayed text.
+                Current text is cleared. New text is rendered.
+
+                Args:
+                    text (str):
+                        The new text to display in the cell.
+                """
                 self.text = text
                 self.displayTile.text.clear()
                 self.displayTile.update(text)
@@ -1938,6 +1981,7 @@ class TerminalTiler:
                                                          visible=False,
                                                          canFocus=canFocus,
                                                          textWrap=TerminalTiler.Style.Wrap.NOWRAP,
+                                                         textJust=TerminalTiler.Style.Justify.LJUST,
                                                          sizeMode=TerminalTiler.Style.Size.FIXED,
                                                          border=border,
                                                          header=header)
@@ -2138,7 +2182,11 @@ class TerminalTiler:
         """
         return not self.exit.is_set()
 
-    def addDisplayTile(self, x:int, y:int, width:int, height:int, visible:bool=True, canFocus:bool=True, textWrap:int=None, sizeMode:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerTextWrap:int=None, headerBorder:bool=False)->DisplayTile:
+    def addDisplayTile(self, x:int, y:int, width:int, height:int,
+                       visible:bool=True, canFocus:bool=True,
+                       textWrap:int=None, textJust:int=None, sizeMode:int=None,
+                       borderStyle:int=None, borderChar:str=None,
+                       headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->DisplayTile:
         """
         Creates and registers a new DisplayTile in the terminal layout.
 
@@ -2153,13 +2201,15 @@ class TerminalTiler:
             height (int): DisplayTile height in rows.
             visible (bool): Show DisplayTile?
             canFocus (bool): Can this be focused?
-            textWrap (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-            sizeMode (int, optional): Style.Size.FIXED or Style.Size.SCROLLING.
+            textWrap (int, optional): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textJust (int, optional): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+            sizeMode (int, optional): Text buffer sizing. Style.Size.FIXED or Style.Size.SCROLLING.
             borderStyle (int, optional): Border style constant.
             borderChar (str, optional): Custom border character.
             headerLines (int): Number of header rows.
-            headerTextWrap (int, optional): Header text mode.
-            headerBorder (bool): Whether header has its own border.
+            headerTextWrap (int, optional): Header text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            headerTextJust (int, optional): Header text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+            headerBorder (bool): Draw border between header and text?
 
         Returns:
             DisplayTile: DisplayTile object.
@@ -2172,17 +2222,24 @@ class TerminalTiler:
         elif y + height - 1 > self.rows:
             raise ValueError(f"DisplayTile exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        tile = TerminalTiler.DisplayTile(write_func=self._write, 
-                                         x=x, 
-                                         y=y, 
-                                         width=width, 
-                                         height=height, 
-                                         visible=visible, 
-                                         canFocus=canFocus, 
-                                         textWrap=textWrap, 
-                                         sizeMode=sizeMode, 
-                                         border=TerminalTiler.Border(borderStyle, borderChar), 
-                                         header=TerminalTiler.Header(headerLines, headerTextWrap, headerBorder))
+        tile = TerminalTiler.DisplayTile(
+            write_func=self._write,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            visible=visible,
+            canFocus=canFocus,
+            textWrap=textWrap,
+            textJust=textJust,
+            sizeMode=sizeMode,
+            border=TerminalTiler.Border(
+                style=borderStyle,
+                charset=borderChar),
+            header=TerminalTiler.Header(lines=headerLines,
+                textWrap=headerTextWrap,
+                textJust=headerTextJust,
+                hasBorder=headerBorder))
         self.tiles.append(tile)
         return tile
 
@@ -2425,7 +2482,7 @@ class TerminalTiler:
             header=TerminalTiler.Header(
                 lines=headerLines,
                 textWrap=headerTextWrap,
-                # textJust=textJust,
+                textJust=headerTextJust,
                 hasBorder=headerBorder
             )
         )
