@@ -1791,8 +1791,9 @@ class TerminalTiler:
                 self.input.set()
 
             elif key == TerminalTiler.Keyboard.KEY_ENTER:
-                self.value = self.buttons[self.focusedIndex].value
-                self.close.set()
+                if self.focusedIndex >= 0:
+                    self.value = self.buttons[self.focusedIndex].value
+                    self.close.set()
 
             else:
                 for button in self.buttons:
