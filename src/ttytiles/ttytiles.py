@@ -312,7 +312,7 @@ class TerminalTiler:
                 hasBorder (bool): Render border between header and text?
             """
             self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
-            self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else -1
+            self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST
             self.hasBorder = hasBorder
 
             # text
