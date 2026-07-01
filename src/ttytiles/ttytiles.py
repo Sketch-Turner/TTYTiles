@@ -1310,18 +1310,20 @@ class TerminalTiler:
             self.height = height
             self.canFocus = False
             self.visible = visible
-            self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
-                                        x=x,
-                                        y=y,
-                                        width=width,
-                                        height=height,
-                                        visible=visible,
-                                        canFocus=False,
-                                        textWrap=TerminalTiler.Style.Wrap.NOWRAP,
-                                        textJust=TerminalTiler.Style.Justify.LJUST,
-                                        sizeMode=TerminalTiler.Style.Size.FIXED,
-                                        border=border,
-                                        header=TerminalTiler.Header())
+            self.displayTile = TerminalTiler.DisplayTile(
+                write_func=write_func,
+                x=x,
+                y=y,
+                width=width,
+                height=height,
+                visible=visible,
+                canFocus=False,
+                textWrap=TerminalTiler.Style.Wrap.NOWRAP,
+                textJust=TerminalTiler.Style.Justify.LJUST,
+                sizeMode=TerminalTiler.Style.Size.FIXED,
+                border=border,
+                header=TerminalTiler.Header()
+            )
             # colors
             self.colors = {
                 "BORDER_FG": None,
@@ -1437,18 +1439,20 @@ class TerminalTiler:
             self.canFocus = False
             self.visible = False
             self.waitTime = 0.5
-            self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
-                                                         x=x,
-                                                         y=y,
-                                                         width=width,
-                                                         height=height,
-                                                         visible=False,
-                                                         canFocus=False,
-                                                         textWrap=textWrap,
-                                                         textJust=textJust,
-                                                         sizeMode=TerminalTiler.Style.Size.FIXED,
-                                                         border=border,
-                                                         header=TerminalTiler.Header())
+            self.displayTile = TerminalTiler.DisplayTile(
+                write_func=write_func,
+                x=x,
+                y=y,
+                width=width,
+                height=height,
+                visible=False,
+                canFocus=False,
+                textWrap=textWrap,
+                textJust=textJust,
+                sizeMode=TerminalTiler.Style.Size.FIXED,
+                border=border,
+                header=TerminalTiler.Header()
+            )
             # colors
             self.colors = {
                 "BORDER_FG": None,
@@ -1590,18 +1594,20 @@ class TerminalTiler:
                 self.text = text
                 self.shortcut_key = shortcut_key
                 self.value = value
-                self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
-                                                             x=0, # set at render
-                                                             y=0, # set at render
-                                                             width=width,
-                                                             height=height,
-                                                             visible=False,
-                                                             canFocus=False,
-                                                             textWrap=textWrap,
-                                                             textJust=textJust,
-                                                             sizeMode=TerminalTiler.Style.Size.FIXED,
-                                                             border=border,
-                                                             header=TerminalTiler.Header())
+                self.displayTile = TerminalTiler.DisplayTile(
+                    write_func=write_func,
+                    x=0, # set at render
+                    y=0, # set at render
+                    width=width,
+                    height=height,
+                    visible=False,
+                    canFocus=False,
+                    textWrap=textWrap,
+                    textJust=textJust,
+                    sizeMode=TerminalTiler.Style.Size.FIXED,
+                    border=border,
+                    header=TerminalTiler.Header()
+                )
 
         def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, headerText:str, x:int, y:int, width:int, height:int, textWrap:int, textJust:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             """
@@ -1642,18 +1648,20 @@ class TerminalTiler:
             self.buttons = []
             self.focusedIndex = -1 # focused button index
             self.value = None
-            self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
-                                                         x=x,
-                                                         y=y,
-                                                         width=width,
-                                                         height=height,
-                                                         visible=False,
-                                                         canFocus=False,
-                                                         textWrap=textWrap,
-                                                         textJust=textJust,
-                                                         sizeMode=TerminalTiler.Style.Size.FIXED,
-                                                         border=border,
-                                                         header=header)
+            self.displayTile = TerminalTiler.DisplayTile(
+                write_func=write_func,
+                x=x,
+                y=y,
+                width=width,
+                height=height,
+                visible=False,
+                canFocus=False,
+                textWrap=textWrap,
+                textJust=textJust,
+                sizeMode=TerminalTiler.Style.Size.FIXED,
+                border=border,
+                header=header
+            )
             # colors
             self.colors = self.ColorDict(self, "BUTTON_")
             self.colors.update({
@@ -1723,14 +1731,19 @@ class TerminalTiler:
                 raise ValueError(f"Button width exceeds MessageBox available space. ({width} > {self.displayTile.cols - 2})")
             elif height > self.displayTile.rows - 2:
                 raise ValueError(f"Button height exceeds MessageBox available space. ({height} > {self.displayTile.rows - 2})")
-            button = self.Button(write_func=self.write,
-                                 value=value,
-                                 width=width,
-                                 height=height,
-                                 text=text,
-                                 textWrap=textWrap,
-                                 border=TerminalTiler.Border(borderStyle, borderChar),
-                                 shortcut_key=shortcut_key)
+            button = self.Button(
+                write_func=self.write,
+                value=value,
+                width=width,
+                height=height,
+                text=text,
+                textWrap=textWrap,
+                border=TerminalTiler.Border(
+                    style=borderStyle,
+                    charset=borderChar
+                ),
+                shortcut_key=shortcut_key
+            )
             self.colors.subscribers.append(button.displayTile.colors)
             for k, v in self.colors.items():
                 if k.startswith(self.colors.subkey):
@@ -1928,18 +1941,20 @@ class TerminalTiler:
                 self.text = text
                 self.textWrap = textWrap
                 self.textJust = textJust
-                self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
-                                                             x=0,
-                                                             y=0,
-                                                             width=0,
-                                                             height=0,
-                                                             visible=False,
-                                                             canFocus=False,
-                                                             textWrap=textWrap,
-                                                             textJust=textJust,
-                                                             sizeMode=TerminalTiler.Style.Size.FIXED,
-                                                             border=TerminalTiler.Border(),
-                                                             header=TerminalTiler.Header())
+                self.displayTile = TerminalTiler.DisplayTile(
+                    write_func=write_func,
+                    x=0,
+                    y=0,
+                    width=0,
+                    height=0,
+                    visible=False,
+                    canFocus=False,
+                    textWrap=textWrap,
+                    textJust=textJust,
+                    sizeMode=TerminalTiler.Style.Size.FIXED,
+                    border=TerminalTiler.Border(),
+                    header=TerminalTiler.Header()
+                )
 
             def update(self, text:str):
                 """
@@ -1973,18 +1988,20 @@ class TerminalTiler:
             self.height = height
             self.visible = visible
             self.focused = False
-            self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
-                                                         x=x,
-                                                         y=y,
-                                                         width=width,
-                                                         height=height,
-                                                         visible=False,
-                                                         canFocus=canFocus,
-                                                         textWrap=TerminalTiler.Style.Wrap.NOWRAP,
-                                                         textJust=TerminalTiler.Style.Justify.LJUST,
-                                                         sizeMode=TerminalTiler.Style.Size.FIXED,
-                                                         border=border,
-                                                         header=header)
+            self.displayTile = TerminalTiler.DisplayTile(
+                write_func=write_func,
+                x=x,
+                y=y,
+                width=width,
+                height=height,
+                visible=False,
+                canFocus=canFocus,
+                textWrap=TerminalTiler.Style.Wrap.NOWRAP,
+                textJust=TerminalTiler.Style.Justify.LJUST,
+                sizeMode=TerminalTiler.Style.Size.FIXED,
+                border=border,
+                header=header
+            )
             self.colors = self.displayTile.colors
 
         def build(self):
@@ -2182,11 +2199,12 @@ class TerminalTiler:
         """
         return not self.exit.is_set()
 
-    def addDisplayTile(self, x:int, y:int, width:int, height:int,
-                       visible:bool=True, canFocus:bool=True,
-                       textWrap:int=None, textJust:int=None, sizeMode:int=None,
-                       borderStyle:int=None, borderChar:str=None,
-                       headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->DisplayTile:
+    def addDisplayTile(self,
+        x:int, y:int, width:int, height:int,
+        visible:bool=True,
+        textWrap:int=None, textJust:int=None, sizeMode:int=None,
+        borderStyle:int=None, borderChar:str=None,
+        headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->DisplayTile:
         """
         Creates and registers a new DisplayTile in the terminal layout.
 
@@ -2200,7 +2218,6 @@ class TerminalTiler:
             width (int): DisplayTile width in characters.
             height (int): DisplayTile height in rows.
             visible (bool): Show DisplayTile?
-            canFocus (bool): Can this be focused?
             textWrap (int, optional): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
             textJust (int, optional): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
             sizeMode (int, optional): Text buffer sizing. Style.Size.FIXED or Style.Size.SCROLLING.
@@ -2229,21 +2246,29 @@ class TerminalTiler:
             width=width,
             height=height,
             visible=visible,
-            canFocus=canFocus,
+            canFocus=True,
             textWrap=textWrap,
             textJust=textJust,
             sizeMode=sizeMode,
             border=TerminalTiler.Border(
                 style=borderStyle,
-                charset=borderChar),
-            header=TerminalTiler.Header(lines=headerLines,
+                charset=borderChar
+            ),
+            header=TerminalTiler.Header(
+                lines=headerLines,
                 textWrap=headerTextWrap,
                 textJust=headerTextJust,
-                hasBorder=headerBorder))
+                hasBorder=headerBorder
+            )
+        )
         self.tiles.append(tile)
         return tile
 
-    def addInputTile(self, x:int, y:int, width:int, height:int, visible:bool=True, canFocus:bool=True, prompt:str="", borderStyle:int=None, borderChar:str=None)->InputTile:
+    def addInputTile(self,
+        x:int, y:int, width:int, height:int,
+        visible:bool=True, canFocus:bool=True,
+        prompt:str="",
+        borderStyle:int=None, borderChar:str=None)->InputTile:
         """
         Creates and registers a new InputTile in the terminal layout.
 
@@ -2273,20 +2298,31 @@ class TerminalTiler:
         elif y + height - 1 > self.rows:
             raise ValueError(f"InputTile exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        field = TerminalTiler.InputTile(write_func=self._write, 
-                                        exit_event=self.exit, 
-                                        x=x, 
-                                        y=y, 
-                                        width=width, 
-                                        height=height, 
-                                        visible=visible, 
-                                        canFocus=canFocus, 
-                                        prompt=prompt, 
-                                        border=TerminalTiler.Border(borderStyle, borderChar))
-        self.tiles.append(field)
-        return field
+        tile = TerminalTiler.InputTile(
+            write_func=self._write,
+            exit_event=self.exit,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            visible=visible,
+            canFocus=canFocus,
+            prompt=prompt,
+            border=TerminalTiler.Border(
+                style=borderStyle,
+                charset=borderChar
+            )
+        )
+        self.tiles.append(tile)
+        return tile
 
-    def addProgressBar(self, max:int, barChar:str, x:int, y:int, width:int, visible:bool=True, borderStyle:int=None, borderChar:str=None, barLeft:str="", barRight:str="")->ProgressBar:
+    def addProgressBar(self,
+        max:int,
+        barChar:str,
+        x:int, y:int, width:int,
+        visible:bool=True,
+        borderStyle:int=None, borderChar:str=None,
+        barLeft:str="", barRight:str="")->ProgressBar:
         """
         Creates and registers a new ProgressBar in the terminal layout.
 
@@ -2302,7 +2338,7 @@ class TerminalTiler:
             width (int): ProgressBar width in characters.
             visible (bool): Show ProgressBar?
             borderStyle (int, optional): Border style constant.
-            borderChar (str, optional): Custom bar character.
+            borderChar (str, optional): Custom border character.
             barLeft (str, optional): Left boundary of progress bar.
             barRight (str, optional): Right boundary of progress bar.
 
@@ -2323,21 +2359,29 @@ class TerminalTiler:
         elif max <= 0:
             raise ValueError(f"Max bar value must be > 0")
 
-        tile = TerminalTiler.ProgressBar(write_func=self._write, 
-                                         max=max, 
-                                         x=x, 
-                                         y=y, 
-                                         width=width, 
-                                         height=height, 
-                                         visible=visible, 
-                                         border=TerminalTiler.Border(borderStyle, borderChar), 
-                                         barChar=barChar, 
-                                         barLeft=barLeft, 
-                                         barRight=barRight)
+        tile = TerminalTiler.ProgressBar(
+            write_func=self._write,
+            max=max,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            visible=visible,
+            border=TerminalTiler.Border(
+                style=borderStyle,
+                charset=borderChar
+            ),
+            barChar=barChar,
+            barLeft=barLeft,
+            barRight=barRight
+        )
         self.tiles.append(tile)
         return tile
 
-    def addAlert(self, x:int, y:int, width:int, height:int, textWrap:int=None, borderStyle:int=None, borderChar:str=None, text:str="")->Alert:
+    def addAlert(self,
+        x:int, y:int, width:int, height:int,
+        text:str="", textWrap:int=None, textJust:int=None,
+        borderStyle:int=None, borderChar:str=None)->Alert:
         """
         Creates and registers a new Alert in the terminal layout.
 
@@ -2350,9 +2394,10 @@ class TerminalTiler:
             y (int): Alert origin row (1-based).
             width (int): Alert width in characters.
             height (int): InputTile height in rows.
-            textWrap (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textWrap (int, optional): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textJust (int, optional): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
             borderStyle (int, optional): Border style constant.
-            borderChar (str, optional): Custom bar character.
+            borderChar (str, optional): Custom border character.
             text (str, optional): Alert text.
 
         Returns:
@@ -2366,21 +2411,31 @@ class TerminalTiler:
         elif y + height - 1 > self.rows:
             raise ValueError(f"Alert exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        tile = TerminalTiler.Alert(write_func=self._write, 
-                                   overlap_func=self._getIntersectingElements,
-                                   popup_lock=self.popup, 
-                                   exit_event=self.exit,
-                                   x=x, 
-                                   y=y, 
-                                   width=width, 
-                                   height=height, 
-                                   textWrap=textWrap,
-                                   border=TerminalTiler.Border(borderStyle, borderChar), 
-                                   text=text)
+        tile = TerminalTiler.Alert(
+            write_func=self._write,
+            overlap_func=self._getIntersectingElements,
+            popup_lock=self.popup,
+            exit_event=self.exit,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            textWrap=textWrap,
+            textJust=textJust,
+            border=TerminalTiler.Border(
+                style=borderStyle,
+                charset=borderChar
+            ),
+            text=text
+        )
         self.tiles.append(tile)
         return tile
 
-    def addMessageBox(self, x:int, y:int, width:int, height:int, text:str="", textWrap:int=None, borderStyle:int=None, borderChar:str=None, headerText="", headerLines:int=0, headerTextWrap:int=None, headerBorder:bool=False)->MessageBox:
+    def addMessageBox(self,
+        x:int, y:int, width:int, height:int,
+        text:str="", textWrap:int=None, textJust:int=None,
+        borderStyle:int=None, borderChar:str=None,
+        headerText="", headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->MessageBox:
         """
         Creates and registers a new MessageBox in the terminal layout.
 
@@ -2394,12 +2449,14 @@ class TerminalTiler:
             width (int): MessageBox width in characters.
             height (int): MessageBox height in rows.
             text (str): MessageBox text.
-            textWrap (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textWrap (int, optional): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textJust (int, optional): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
             borderStyle (int, optional): Border style constant.
             borderChar (str, optional): Custom border character.
             headerText (str, optional): MessageBox header text.
             headerLines (int, optional): Number of header rows.
-            headerTextWrap (int, optional): Header text mode.
+            headerTextWrap (int, optional): Header text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            headerTextJust (int, optional): Header text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
             headerBorder (bool): Whether header has its own border.
 
         Returns:
@@ -2413,23 +2470,39 @@ class TerminalTiler:
         elif y + height - 1 > self.rows:
             raise ValueError(f"MessageBox exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        tile = TerminalTiler.MessageBox(write_func=self._write, 
-                                        overlap_func=self._getIntersectingElements,
-                                        popup_lock=self.popup, 
-                                        exit_event=self.exit,
-                                        text=text,
-                                        headerText=headerText,
-                                        x=x, 
-                                        y=y, 
-                                        width=width,
-                                        height=height, 
-                                        textWrap=textWrap,
-                                        border=TerminalTiler.Border(borderStyle, borderChar), 
-                                        header=TerminalTiler.Header(headerLines, headerTextWrap, headerBorder))
+        tile = TerminalTiler.MessageBox(
+            write_func=self._write,
+            overlap_func=self._getIntersectingElements,
+            popup_lock=self.popup,
+            exit_event=self.exit,
+            text=text,
+            headerText=headerText,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            textWrap=textWrap,
+            textJust=textJust,
+            border=TerminalTiler.Border(
+                style=borderStyle,
+                charset=borderChar
+            ),
+            header=TerminalTiler.Header(
+                lines=headerLines,
+                textWrap=headerTextWrap,
+                textJust=headerTextJust,
+                hasBorder=headerBorder
+            )
+        )
         self.tiles.append(tile)
         return tile
 
-    def addTable(self, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap:int=None, textJust:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->Table:
+    def addTable(self,
+        x:int, y:int, width:int, height:int,
+        visible:bool, canFocus:bool,
+        textWrap:int=None, textJust:int=None,
+        borderStyle:int=None, borderChar:str=None,
+        headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->Table:
         """
         Creates and registers a new Table in the terminal layout.
 
