@@ -1596,7 +1596,8 @@ class TerminalTiler:
                     width (int): Width of the tile in characters.
                     height (int): Height of the tile in characters.
                     text (str): Button text.
-                    textWrap (int): Text rendering mode (wrap or no-wrap).
+                    textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                    textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
                     border (TerminalTiler.Border): Border configuration.
                     shortcut_key (str): TerminalTiler.Keyboard key that activates the Button.
                 """
@@ -1636,7 +1637,8 @@ class TerminalTiler:
                 y (int): Y-coordinate of the tile.
                 width (int): Width of the tile in characters.
                 height (int): Height of the tile in characters.
-                textWrap (int): Text rendering mode (wrap or no-wrap).
+                textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
                 border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
                 header (TerminalTiler.Header): Header configuration used by the underlying DisplayTile.
             """
