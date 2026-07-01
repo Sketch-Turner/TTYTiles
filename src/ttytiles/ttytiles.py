@@ -544,8 +544,18 @@ class TerminalTiler:
                 "TEXT_BG_F": None
             }
 
+            # set size of buffers
+            self.resize()
+
+            self.visible = visible
+            self.focused = False
+            self.canFocus = canFocus
+            if self.visible:
+                self.show()
+
+        def resize(self):
             # text
-            self.rows = height - self.header.rows
+            self.rows = self.height - self.header.rows
             self.cols = self.width
             self.tx = self.x
             self.ty = self.y + self.header.rows
@@ -570,12 +580,6 @@ class TerminalTiler:
             else:
                 self.text = []
             self.tIndex = 0
-
-            self.visible = visible
-            self.focused = False
-            self.canFocus = canFocus
-            if self.visible:
-                self.show()
 
         def drawBorder(self):
             """
