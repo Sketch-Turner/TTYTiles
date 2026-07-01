@@ -596,14 +596,15 @@ class TerminalTiler:
                 color_fg = self.colors.get("BORDER_FG", None)
                 color_bg = self.colors.get("BORDER_BG", None)
 
-            for row in range(self.y + 1, self.y + self.height):
-                self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
-                self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
+            if self.border.style != TerminalTiler.Border.NO_BORDER:
+                for row in range(self.y + 1, self.y + self.height):
+                    self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
+                    self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
 
-            self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode(), color_fg, color_bg)
-            if self.header.hasBorder:
-                self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode(), color_fg, color_bg)
-            self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode(), color_fg, color_bg)
+                if self.header.hasBorder:
+                    self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode(), color_fg, color_bg)
 
                 if self.sizeMode == TerminalTiler.Style.Size.SCROLLING:
                     self.drawScrollbarBorder()
