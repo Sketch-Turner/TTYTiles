@@ -501,13 +501,13 @@ class TerminalTiler:
         A terminal UI region that renders a bordered rectangular tile
         with an optional header and scrollable/wrappable text buffer.
         """
-        def __init__(self, writer_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap:int, sizeMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+        def __init__(self, write_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap:int, sizeMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             """
             Initializes a DisplayTile UI component that represents a bordered
             terminal region with an optional header and scrollable text buffer.
 
             Args:
-                writer_func: Used to write to terminal.
+                write_func: Used to write to terminal.
                 x (int): Column position of the tile (1-based terminal coords).
                 y (int): Row position of the tile (1-based terminal coords).
                 width (int): Total width of the tile including borders.
@@ -526,7 +526,7 @@ class TerminalTiler:
             self.sizeMode = sizeMode if sizeMode in TerminalTiler.Style.Size.STYLES else TerminalTiler.Style.Size.FIXED
             self.border = border
             self.header = header
-            self.write = writer_func
+            self.write = write_func
 
             # colors
             self.colors = {
@@ -866,7 +866,7 @@ class TerminalTiler:
             prompt rendering, and input capacity limits.
 
             Args:
-                writer_func: Used to write to terminal.
+                write_func: Used to write to terminal.
                 exit_event (threading.Event): Exit flag.
                 x (int): Column position.
                 y (int): Row position.
@@ -1279,7 +1279,7 @@ class TerminalTiler:
             self.height = height
             self.canFocus = False
             self.visible = visible
-            self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
+            self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
                                         x=x,
                                         y=y,
                                         width=width,
@@ -1405,7 +1405,7 @@ class TerminalTiler:
             self.canFocus = False
             self.visible = False
             self.waitTime = 0.5
-            self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
+            self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
                                                          x=x,
                                                          y=y,
                                                          width=width,
@@ -1557,7 +1557,7 @@ class TerminalTiler:
                 self.text = text
                 self.shortcut_key = shortcut_key
                 self.value = value
-                self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
+                self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
                                                              x=0, # set at render
                                                              y=0, # set at render
                                                              width=width,
@@ -1608,7 +1608,7 @@ class TerminalTiler:
             self.buttons = []
             self.focusedIndex = -1 # focused button index
             self.value = None
-            self.displayTile = TerminalTiler.DisplayTile(writer_func=write_func,
+            self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
                                                          x=x,
                                                          y=y,
                                                          width=width,
@@ -1893,7 +1893,7 @@ class TerminalTiler:
                 self.text = text
                 self.textWrap = textWrap
                 self.textJust = textJust
-                self.displayTile = TerminalTiler.DisplayTile(writer_func=writer_func,
+                self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
                                                              x=0,
                                                              y=0,
                                                              width=0,
@@ -1916,21 +1916,21 @@ class TerminalTiler:
                 self.cells = cells
                 self.size = size # width/height of row/col
 
-        def __init__(self, writer_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap: int, textJust: int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+        def __init__(self, write_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap: int, textJust: int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             self.table_rows = 0
             self.table_cols = 0
             self.row_list = []
             self.col_list = []
             self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP # default textWrap for cells
             self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST # default textJust for cells
-            self.write = writer_func
+            self.write = write_func
             self.x = x
             self.y = y
             self.width = width
             self.height = height
             self.visible = visible
             self.focused = False
-            self.displayTile = TerminalTiler.DisplayTile(writer_func=writer_func,
+            self.displayTile = TerminalTiler.DisplayTile(write_func=write_func,
                                                          x=x,
                                                          y=y,
                                                          width=width,
@@ -2172,7 +2172,7 @@ class TerminalTiler:
         elif y + height - 1 > self.rows:
             raise ValueError(f"DisplayTile exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
-        tile = TerminalTiler.DisplayTile(writer_func=self._write, 
+        tile = TerminalTiler.DisplayTile(write_func=self._write, 
                                          x=x, 
                                          y=y, 
                                          width=width, 
@@ -2409,7 +2409,7 @@ class TerminalTiler:
             raise ValueError(f"Table exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
 
         tile = TerminalTiler.Table(
-            writer_func=self._write,
+            write_func=self._write,
             x=x,
             y=y,
             width=width,
