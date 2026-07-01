@@ -553,7 +553,26 @@ class TerminalTiler:
             if self.visible:
                 self.show()
 
-        def resize(self):
+        def resize(self, width:int=None, height:int=None):
+            """
+            Resize the display tile and recalculate all derived layout values.
+
+            Updates the tile's dimensions and recomputes the positions and sizes of
+            the text area, header, and borders. The usable text region is adjusted
+            based on the configured border style, header, and size mode.
+            Resets the scroll index to the top.
+
+            Args:
+                width (int, optional):
+                    New width of the tile. If `None`, the `self.width` is used.
+                height (int, optional):
+                    New height of the tile. If `None`, the `self.height` is used.
+            """
+            if width:
+                self.width = width
+            if height:
+                self.height = height
+
             # text
             self.rows = self.height - self.header.rows
             self.cols = self.width
@@ -1849,8 +1868,28 @@ class TerminalTiler:
                 self.displayTile.hide()
 
     class Table:
+        """
+        A terminal UI region that displays a table.
+        """
         class Cell:
-            def __init__(self, writer_func, text:str, textWrap:int, textJust:int):
+            """
+            Stores text and formatting info for a Table cell.
+            """
+            def __init__(self, write_func, text:str, textWrap:int, textJust:int):
+                """
+                Initialize a table cell.
+
+                Args:
+                    write_func (Callable):
+                        Function used by the display tile to write rendered output to the
+                        terminal.
+                    text (str):
+                        Initial text displayed in the cell.
+                    textWrap (int):
+                        Text wrapping mode. (WRAP or NOWRAP)
+                    textJust (int):
+                        Horizontal text justification. (LJUST, CENTERED, or RJUST)
+                """
                 self.text = text
                 self.textWrap = textWrap
                 self.textJust = textJust
