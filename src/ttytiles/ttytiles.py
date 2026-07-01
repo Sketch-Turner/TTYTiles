@@ -885,6 +885,15 @@ class TerminalTiler:
             for i in range(self.height):
                 self.write(f"\x1b[{self.y + i};{self.x}H{' ' * self.width}".encode())
 
+        def dump(self)->str:
+            """
+            Dump lines of DisplayTile.text joined with newline. All whitespace is stripped.
+
+            Returns:
+                str: DisplayTile text.
+            """
+            return "\n".join([text.strip() for text in list(self.text)])
+
     class InputTile:
         """
         A fixed-size terminal input tile supporting interactive text editing.
@@ -1423,7 +1432,8 @@ class TerminalTiler:
                 y (int): Y-coordinate of the tile.
                 width (int): Width of the tile in characters.
                 height (int): Height of the tile in characters.
-                textWrap (int): Text rendering mode (wrap or no-wrap).
+                textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
                 border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
             """
             self.getOverlaping = overlap_func
@@ -1928,15 +1938,10 @@ class TerminalTiler:
                 Initialize a table cell.
 
                 Args:
-                    write_func (Callable):
-                        Function used by the display tile to write rendered output to the
-                        terminal.
-                    text (str):
-                        Initial text displayed in the cell.
-                    textWrap (int):
-                        Text wrapping mode. (WRAP or NOWRAP)
-                    textJust (int):
-                        Horizontal text justification. (LJUST, CENTERED, or RJUST)
+                    write_func (Callable): Function used by the display tile to write rendered output to the terminal.
+                    text (str): Initial text displayed in the cell.
+                    textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                    textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
                 """
                 self.text = text
                 self.textWrap = textWrap
@@ -2157,6 +2162,29 @@ class TerminalTiler:
                 y += height + 1
 
             self.drawBorder()
+
+        def escapeCSV(self, text)->str:
+            """
+            Escapes text according to CSV format.
+
+            Args:
+                text (str): Text to escape.
+
+            Returns:
+                str: Escaped text.
+            """
+            if any(c in text for c in [',', '\n', '\r', '"']):
+                return '"' + text.replace('"', '""') + '"'
+            return text
+
+        def dump(self)->str:
+            """
+            Dump contents of Table as CSV.
+
+            Returns:
+                str: Table contents in CSV format.
+            """
+            return '\n'.join(','.join(self.escapeCSV(cell.text) for cell in row.cells) for row in self.row_list)
 
     class SIGINT(Exception):
         """
