@@ -1849,7 +1849,214 @@ class TerminalTiler:
                 self.displayTile.hide()
 
     class Table:
-        pass
+        class Cell:
+            def __init__(self, writer_func, text:str, textWrap:int, textJust:int):
+                self.text = text
+                self.textWrap = textWrap
+                self.textJust = textJust
+                self.displayTile = TerminalTiler.DisplayTile(writer_func=writer_func,
+                                                             x=0,
+                                                             y=0,
+                                                             width=0,
+                                                             height=0,
+                                                             visible=False,
+                                                             canFocus=False,
+                                                             textWrap=textWrap,
+                                                            #  textJust=textJust,
+                                                             sizeMode=TerminalTiler.Style.Size.FIXED,
+                                                             border=TerminalTiler.Border(),
+                                                             header=TerminalTiler.Header())
+
+            def update(self, text:str):
+                self.text = text
+                self.displayTile.text.clear()
+                self.displayTile.update(text)
+
+        class Axis:
+            def __init__(self, cells:list, size:int):
+                self.cells = cells
+                self.size = size # width/height of row/col
+
+        def __init__(self, writer_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap: int, textJust: int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+            self.table_rows = 0
+            self.table_cols = 0
+            self.row_list = []
+            self.col_list = []
+            self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP # default textWrap for cells
+            self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST # default textJust for cells
+            self.write = writer_func
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+            self.visible = visible
+            self.focused = False
+            self.displayTile = TerminalTiler.DisplayTile(writer_func=writer_func,
+                                                         x=x,
+                                                         y=y,
+                                                         width=width,
+                                                         height=height,
+                                                         visible=False,
+                                                         canFocus=canFocus,
+                                                         textWrap=TerminalTiler.Style.Wrap.NOWRAP,
+                                                         sizeMode=TerminalTiler.Style.Size.FIXED,
+                                                         border=border,
+                                                         header=header)
+            self.colors = self.displayTile.colors
+
+        def build(self):
+            col_base = (self.displayTile.cols - (self.table_cols - 1)) // self.table_cols
+            col_extra = (self.displayTile.cols - (self.table_cols - 1)) % self.table_cols
+
+            row_base = (self.displayTile.rows - (self.table_rows - 1)) // self.table_rows
+            row_extra = (self.displayTile.rows - (self.table_rows - 1)) % self.table_rows
+
+            # create the cell grid
+            self.cells = [[self.Cell(self.write, text="", textWrap=self.textWrap, textJust=self.textJust) for _ in range(self.table_cols)] for _ in range(self.table_rows)]
+
+            # create row axis list
+            self.row_list = [
+                self.Axis(
+                    self.cells[r],
+                    row_base + (1 if r < row_extra else 0)
+                ) for r in range(self.table_rows)
+            ]
+
+            # create column axis list
+            self.col_list = [
+                self.Axis(
+                    [self.cells[r][c] for r in range(self.table_rows)],
+                    col_base + (1 if c < col_extra else 0)
+                ) for c in range(self.table_cols)
+            ]
+
+        def load(self, data:list[list]):
+            self.table_cols = max([len(r) for r in data])
+            self.table_rows = len(data)
+            self.build()
+
+            for r in range(self.table_rows):
+                for c in range(len(data[r])):
+                    self.cells[r][c].text = str(data[r][c])
+
+        def insertRow(self, data:list, index:int=None):
+            pass
+
+        def insertCol(self, data:list, index:int=None):
+            pass
+
+        def update(self, x:int, y:int, text:str):
+            self.cells[y][x].update(text)
+
+        def drawBorder(self):
+            if self.displayTile.border.style != TerminalTiler.Border.NO_BORDER:
+                self.displayTile.drawBorder()
+
+                # draw table lines and juncts
+                if self.focused:
+                    color_fg = self.colors.get("BORDER_FG_F", None)
+                    color_bg = self.colors.get("BORDER_BG_F", None)
+                else:
+                    color_fg = self.colors.get("BORDER_FG", None)
+                    color_bg = self.colors.get("BORDER_BG", None)
+
+                visible_cols = [c for c in self.col_list if c.size > 0]
+                visible_rows = [r for r in self.row_list if r.size > 0]
+
+                # row borders
+                top_border = (
+                    (self.displayTile.border.charset.junctionVE if self.displayTile.header.rows > 0 else self.displayTile.border.charset.cornerNW) +
+                    self.displayTile.border.charset.junctionHS.join(self.displayTile.border.charset.lineH * c.size for c in visible_cols) +
+                    (self.displayTile.border.charset.junctionVW if self.displayTile.header.rows > 0 else self.displayTile.border.charset.cornerNE)
+                )
+                middle_border = (
+                    self.displayTile.border.charset.junctionVE +
+                    self.displayTile.border.charset.junctionAll.join(self.displayTile.border.charset.lineH * c.size for c in visible_cols) +
+                    self.displayTile.border.charset.junctionVW
+                )
+                bottom_border = (
+                    self.displayTile.border.charset.cornerSW +
+                    self.displayTile.border.charset.junctionHN.join(self.displayTile.border.charset.lineH * c.size for c in visible_cols) +
+                    self.displayTile.border.charset.cornerSE
+                )
+                self.write(f"\x1b[{self.displayTile.ty - 1};{self.displayTile.x}H{top_border}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{self.displayTile.ty + self.displayTile.rows};{self.displayTile.x}H{bottom_border}".encode(), color_fg, color_bg)
+
+                # col borders
+                y = self.displayTile.ty
+                for i, r in enumerate(visible_rows):
+                    x = self.displayTile.tx
+                    height = r.size
+                    for c in visible_cols:
+                        width = c.size
+                        x += width + 1
+                        for offset in range(height):
+                            self.write(f"\x1b[{y + offset};{x - 1}H{self.displayTile.border.charset.lineV}".encode(), color_fg, color_bg)
+
+                    y += height + 1
+                    if i < len(visible_rows) - 1:
+                        self.write(f"\x1b[{y - 1};{self.displayTile.x}H{middle_border}".encode(), color_fg, color_bg)
+
+        def show(self):
+            parent_x2 = self.displayTile.tx + self.displayTile.cols
+            parent_y2 = self.displayTile.ty + self.displayTile.rows
+
+            y = self.displayTile.ty
+            for r in range(self.table_rows):
+                x = self.displayTile.tx
+
+                # requested row height
+                height = self.row_list[r].size
+
+                # clamp if this row would overflow
+                if y + height > parent_y2:
+                    height = max(0, parent_y2 - y)
+
+                # last row grows to fill any remaining space
+                if (r == self.table_rows - 1):
+                    height = max(height, parent_y2 - y)
+
+                # bottom border of last row is at bottom of display
+                if r < self.table_rows - 1 and y + height + 1 == parent_y2:
+                    height += 1
+
+                # update row size
+                self.row_list[r].size = height
+
+                for c in range(self.table_cols):
+                    # Requested column width
+                    width = self.col_list[c].size
+
+                    # clamp if this column would overflow
+                    if x + width > parent_x2:
+                        width = max(0, parent_x2 - x)
+
+                    # last column grows to fill any remaining space
+                    if c == self.table_cols - 1:
+                        width = max(width, parent_x2 - x)
+
+                    # right border of last col is at right of display
+                    if r < self.table_cols - 1 and x + width + 1 == parent_x2:
+                        width += 1
+
+                    # update col size
+                    self.col_list[c].size = width
+
+                    cell = self.cells[r][c]
+                    cell.displayTile.x = x
+                    cell.displayTile.y = y
+                    cell.displayTile.width = width
+                    cell.displayTile.height = height
+                    cell.displayTile.resize()
+                    cell.displayTile.focused = self.focused
+                    cell.displayTile.text.clear()
+                    cell.displayTile.update(cell.text)
+
+                    x += width + 1
+
+                y += height + 1
+
+            self.drawBorder()
 
     class SIGINT(Exception):
         """
@@ -2122,7 +2329,67 @@ class TerminalTiler:
                                         height=height, 
                                         textWrap=textWrap,
                                         border=TerminalTiler.Border(borderStyle, borderChar), 
-                                        header=TerminalTiler.Header(headerLines, headerMode, headerBorder))
+                                        header=TerminalTiler.Header(headerLines, headerTextWrap, headerBorder))
+        self.tiles.append(tile)
+        return tile
+
+    def addTable(self, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap:int=None, textJust:int=None, borderStyle:int=None, borderChar:str=None, headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->Table:
+        """
+        Creates and registers a new Table in the terminal layout.
+
+        Performs boundary validation against the terminal size to ensure
+        the tile fits within the visible viewport. Then constructs a Table
+        instance with the specified border and header configuration stores it in self.tiles[].
+
+        Args:
+            x (int): Table origin column (1-based).
+            y (int): Table origin row (1-based).
+            width (int): Table width in characters.
+            height (int): Table height in rows.
+            visible (bool): Show Table?
+            canFocus (bool): Can this be focused?
+            textWrap (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textJust (int, optional): Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+            sizeMode (int, optional): Style.Size.FIXED or Style.Size.SCROLLING.
+            borderStyle (int, optional): Border style constant.
+            borderChar (str, optional): Custom border character.
+            headerLines (int, optional): Number of header rows.
+            headerTextWrap (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            headerTextJust (int,  optional): Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+            headerBorder (bool, optional): Whether header has its own border.
+
+        Returns:
+            Table: Table object.
+        """
+        #check dimensions
+        if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
+            raise ValueError("Table origin is not contained by terminal")
+        elif x + width - 1 > self.cols:
+            raise ValueError(f"Table exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
+        elif y + height - 1 > self.rows:
+            raise ValueError(f"Table exceeds terminal boundary (Y-axis) {y + height - 1} > {self.rows}")
+
+        tile = TerminalTiler.Table(
+            writer_func=self._write,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            visible=visible,
+            canFocus=canFocus,
+            textWrap=textWrap,
+            textJust=textJust,
+            border=TerminalTiler.Border(
+                style=borderStyle,
+                charset=borderChar
+            ),
+            header=TerminalTiler.Header(
+                lines=headerLines,
+                textWrap=headerTextWrap,
+                # textJust=textJust,
+                hasBorder=headerBorder
+            )
+        )
         self.tiles.append(tile)
         return tile
 
