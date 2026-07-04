@@ -1738,7 +1738,7 @@ class TerminalTiler:
 
             return total_height + 2
 
-        def addButton(self, value, width:int, height:int, text:str, textWrap:int=None, borderStyle:int=None, borderChar:str=None, shortcut_key:str=None)->Button:
+        def addButton(self, value, width:int, height:int, text:str, textWrap:int=None, textJust:int=None, borderStyle:int=None, borderChar:str=None, shortcut_key:str=None)->Button:
             if width > self.displayTile.cols - 2:
                 raise ValueError(f"Button width exceeds MessageBox available space. ({width} > {self.displayTile.cols - 2})")
             elif height > self.displayTile.rows - 2:
@@ -1750,6 +1750,7 @@ class TerminalTiler:
                 height=height,
                 text=text,
                 textWrap=textWrap,
+                textJust=textJust,
                 border=TerminalTiler.Border(
                     style=borderStyle,
                     charset=borderChar
