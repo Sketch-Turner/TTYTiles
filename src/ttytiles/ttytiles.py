@@ -621,7 +621,7 @@ class TerminalTiler:
                 color_bg = self.colors.get("BORDER_BG", None)
 
             if self.border.style != TerminalTiler.Border.NO_BORDER:
-                for row in range(self.y + 1, self.y + self.height):
+                for row in range(self.y + 1, self.y + self.height - 1):
                     self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
                     self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
 
