@@ -301,19 +301,27 @@ class TerminalTiler:
         and border support.
         """
 
-        def __init__(self, lines:int=0, textWrap:int=0, textJust:int=0, hasBorder:bool=False):
+        def __init__(self,
+            lines:int=0, hasBorder:bool=False,
+            textWrap:int=0, textJust:int=0,
+            colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None,
+            colorFG_F:tuple[int, int, int]=None, colorBG_F:tuple[int, int, int]=None):
             """
             Initializes the header buffer and display configuration.
 
             Args:
                 lines (int): Maximum number of text rows stored.
+                hasBorder (bool): Render border between header and text?
                 textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
                 textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-                hasBorder (bool): Render border between header and text?
             """
             self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
             self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST
             self.hasBorder = hasBorder
+            self.colorFG = colorFG
+            self.colorBG = colorBG
+            self.colorFG_F = colorFG_F if colorFG_F is not None else colorFG
+            self.colorBG_F = colorBG_F if colorBG_F is not None else colorBG
 
             # text
             self.rows = lines
@@ -399,65 +407,107 @@ class TerminalTiler:
         DOUBLE_BOX = 3
         HEAVY_BOX = 4
         ASCII = 5
-        BORDER_STYLES = {NO_BORDER, CUSTOM, SINGLE_BOX, DOUBLE_BOX, HEAVY_BOX, ASCII}
+        ASCII_ALT = 6
+        BORDER_STYLES = {NO_BORDER, CUSTOM, SINGLE_BOX, DOUBLE_BOX, HEAVY_BOX, ASCII, ASCII_ALT}
         BORDER_CHARS = {NO_BORDER:  "",
                         CUSTOM:     "",
                         SINGLE_BOX: "─│┌┐└┘├┤┬┴┼▄▀█▲▼⯇⯈",
                         DOUBLE_BOX: "═║╔╗╚╝╠╣╦╩╬▄▀█▲▼⯇⯈",
                         HEAVY_BOX:  "━┃┏┓┗┛┣┫┳┻╋▄▀█▲▼⯇⯈",
-                        ASCII:      "-|+++++++++###^v<>"
+                        ASCII:      "-|+++++++++###^v<>",
+                        ASCII_ALT:  "=|*********###^v<>"
                         }
 
-        def __init__(self, style: int = None, charset: str = None):
+        def __init__(self,
+            style:int=None, charset:str=None,
+            colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None,
+            style_F:int=None, charset_F:str=None,
+            colorFG_F:tuple[int, int, int]=None, colorBG_F:tuple[int, int, int]=None):
             """
-            Border constructor.
+            Border constructor. If any focused attributes are not set, the default border attribute will be used.
 
             Args:
                 style (int): Border style.
                 charset (str): Custom border character(s). If this is not None, border.style is set to CUSTOM.
+                colorFG (tuple[int, int, int]): Border foreground RGB color.
+                colorBG (tuple[int, int, int]): Border background RGB color.
+                style_F (int): Border style when focused.
+                charset_F (str): Border charset when focused.
+                colorFG_F (tuple[int, int, int]): Border foreground RGB color when focused.
+                colorBG_F (tuple[int, int, int]): Border background RGB color when focused.
             """
-            self.style = style if style in self.BORDER_STYLES else self.NO_BORDER
-            if charset is not None:
-                self.style = self.CUSTOM
-            else:
+            # normal border
+            if charset is None:
+                self.style = style if style in self.BORDER_STYLES else self.NO_BORDER
                 charset = self.BORDER_CHARS[self.style]
-            self.charset = self.Charset(charset)
+            else:
+                self.style = self.CUSTOM
 
-        def getTop(self, width:int)->str:
+            self.charset = self.Charset(charset)
+            self.colorFG = colorFG
+            self.colorBG = colorBG
+
+            # focused border
+            if charset_F is None:
+                self.style_F = (
+                    style_F if style_F in self.BORDER_STYLES else self.NO_BORDER
+                ) if style_F is not None else self.style
+
+                charset_F = self.BORDER_CHARS[self.style_F]
+            else:
+                self.style_F = self.CUSTOM
+
+            self.charset_F = self.Charset(charset_F) if charset_F is not None else self.Charset(charset)
+            self.colorFG_F = colorFG_F if colorFG_F is not None else colorFG
+            self.colorBG_F = colorBG_F if colorBG_F is not None else colorBG
+
+        def getTop(self, width:int, focused:bool)->str:
             """
             Returns the top border line for the specified width.
 
             Args:
                 width (int): Total width of the border line.
+                focused (bool): Is the tile focused?
 
             Returns:
                 str: Rendered top border string.
             """
-            return self.charset.cornerNW + self.charset.lineH * (width - 2) + self.charset.cornerNE
+            if focused:
+                return self.charset_F.cornerNW + self.charset_F.lineH * (width - 2) + self.charset_F.cornerNE
+            else:
+                return self.charset.cornerNW + self.charset.lineH * (width - 2) + self.charset.cornerNE
 
-        def getMiddle(self, width:int):
+        def getMiddle(self, width:int, focused:bool):
             """
             Returns the middle separator border line for the specified width.
 
             Args:
                 width (int): Total width of the border line.
+                focused (bool): Is the tile focused?
 
             Returns:
                 str: Rendered middle border string.
             """
-            return self.charset.junctionVE + self.charset.lineH * (width - 2) + self.charset.junctionVW
+            if focused:
+                return self.charset_F.junctionVE + self.charset_F.lineH * (width - 2) + self.charset_F.junctionVW
+            else:
+                return self.charset.junctionVE + self.charset.lineH * (width - 2) + self.charset.junctionVW
 
-        def getBottom(self, width:int):
+        def getBottom(self, width:int, focused:bool):
             """
             Returns the bottom border line for the specified width.
 
             Args:
                 width (int): Total width of the border line.
+                focused (bool): Is the tile focused?
 
             Returns:
                 str: Rendered bottom border string.
             """
-            return self.charset.cornerSW + self.charset.lineH * (width - 2) + self.charset.cornerSE
+            if focused:
+                return self.charset_F.cornerSW + self.charset_F.lineH * (width - 2) + self.charset_F.cornerSE
+            else:
+                return self.charset.cornerSW + self.charset.lineH * (width - 2) + self.charset.cornerSE
 
     class Style:
         class Wrap:
@@ -503,7 +553,13 @@ class TerminalTiler:
         A terminal UI region that renders a bordered rectangular tile
         with an optional header and scrollable/wrappable text buffer.
         """
-        def __init__(self, write_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap:int, textJust:int, sizeMode:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+        def __init__(self, write_func,
+            x:int, y:int, width:int, height:int,
+            visible:bool, canFocus:bool,
+            textWrap:int, textJust:int, sizeMode:int,
+            border:"TerminalTiler.Border",
+            header:"TerminalTiler.Header",
+            colorFG:tuple[int, int, int], colorBG:tuple[int, int, int], colorFG_F:tuple[int, int, int], colorBG_F:tuple[int, int, int]):
             """
             Initializes a DisplayTile UI component that represents a bordered
             terminal region with an optional header and scrollable text buffer.
@@ -534,20 +590,10 @@ class TerminalTiler:
             self.write = write_func
 
             # colors
-            self.colors = {
-                "BORDER_FG": None,
-                "BORDER_BG": None,
-                "HEADER_FG": None,
-                "HEADER_BG": None,
-                "TEXT_FG": None,
-                "TEXT_BG": None,
-                "BORDER_FG_F": None,
-                "BORDER_BG_F": None,
-                "HEADER_FG_F": None,
-                "HEADER_BG_F": None,
-                "TEXT_FG_F": None,
-                "TEXT_BG_F": None
-            }
+            self.colorFG = colorFG
+            self.colorBG = colorBG
+            self.colorFG_F = colorFG_F
+            self.colorBG_F = colorBG_F
 
             # set size of buffers
             self.resize()
@@ -613,22 +659,24 @@ class TerminalTiler:
                 - Optional header separator (middle border)
                 - Bottom border line
             """
-            if self.focused:
-                color_fg = self.colors.get("BORDER_FG_F", None)
-                color_bg = self.colors.get("BORDER_BG_F", None)
-            else:
-                color_fg = self.colors.get("BORDER_FG", None)
-                color_bg = self.colors.get("BORDER_BG", None)
-
             if self.border.style != TerminalTiler.Border.NO_BORDER:
-                for row in range(self.y + 1, self.y + self.height - 1):
-                    self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
-                    self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
+                if self.focused:
+                    color_fg = self.border.colorFG_F
+                    color_bg = self.border.colorBG_F
+                    charset = self.border.charset_F
+                else:
+                    color_fg = self.border.colorFG
+                    color_bg = self.border.colorBG
+                    charset = self.border.charset
 
-                self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode(), color_fg, color_bg)
+                for row in range(self.y + 1, self.y + self.height - 1):
+                    self.write(f"\x1b[{row};{self.x}H{charset.lineV}".encode(), color_fg, color_bg)
+                    self.write(f"\x1b[{row};{self.x + self.width - 1}H{charset.lineV}".encode(), color_fg, color_bg)
+
+                self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width, self.focused)}".encode(), color_fg, color_bg)
                 if self.header.hasBorder:
-                    self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width)}".encode(), color_fg, color_bg)
-                self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode(), color_fg, color_bg)
+                    self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width, self.focused)}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width, self.focused)}".encode(), color_fg, color_bg)
 
                 if self.sizeMode == TerminalTiler.Style.Size.SCROLLING:
                     self.drawScrollbarBorder()
@@ -639,40 +687,44 @@ class TerminalTiler:
             Draws the right-side scrollbar border.
             """
             if self.focused:
-                color_fg = self.colors.get("BORDER_FG_F", None)
-                color_bg = self.colors.get("BORDER_BG_F", None)
+                color_fg = self.border.colorFG_F
+                color_bg = self.border.colorBG_F
+                charset = self.border.charset_F
             else:
-                color_fg = self.colors.get("BORDER_FG", None)
-                color_bg = self.colors.get("BORDER_BG", None)
+                color_fg = self.border.colorFG
+                color_bg = self.border.colorBG
+                charset = self.border.charset
 
             #top
             header_height = self.header.rows
-            cornerTop = self.border.charset.cornerNE
+            cornerTop = charset.cornerNE
             if self.header.hasBorder:
                 header_height += 1
-                cornerTop = self.border.charset.junctionVW
-            self.write(f"\x1b[{self.y + header_height};{self.x + self.width - 3}H{self.border.charset.junctionHS + self.border.charset.lineH + cornerTop}".encode(), color_fg, color_bg)
+                cornerTop = charset.junctionVW
+            self.write(f"\x1b[{self.y + header_height};{self.x + self.width - 3}H{charset.junctionHS + charset.lineH + cornerTop}".encode(), color_fg, color_bg)
 
             #middle
             for row in range(self.y + header_height + 1, self.y + self.height - 1):
-                self.write(f"\x1b[{row};{self.x + self.width - 3}H{self.border.charset.lineV + ' ' + self.border.charset.lineV}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{row};{self.x + self.width - 3}H{charset.lineV + ' ' + charset.lineV}".encode(), color_fg, color_bg)
 
             #bottom
-            cornerBottom = self.border.charset.cornerSW
+            cornerBottom = charset.cornerSW
             if self.border.style != TerminalTiler.Border.NO_BORDER:
-                cornerBottom = self.border.charset.junctionHN
-            self.write(f"\x1b[{self.y + self.height - 1};{self.x + self.width - 3}H{cornerBottom + self.border.charset.lineH + self.border.charset.cornerSE}".encode(), color_fg, color_bg)
+                cornerBottom = charset.junctionHN
+            self.write(f"\x1b[{self.y + self.height - 1};{self.x + self.width - 3}H{cornerBottom + charset.lineH + charset.cornerSE}".encode(), color_fg, color_bg)
 
         def drawScrollbar(self):
             """
             Renders the scrollbar thumb inside the scrollbar track.
             """
             if self.focused:
-                color_fg = self.colors.get("BORDER_FG_F", None)
-                color_bg = self.colors.get("BORDER_BG_F", None)
+                color_fg = self.border.colorFG_F
+                color_bg = self.border.colorBG_F
+                charset = self.border.charset_F
             else:
-                color_fg = self.colors.get("BORDER_FG", None)
-                color_bg = self.colors.get("BORDER_BG", None)
+                color_fg = self.border.colorFG
+                color_bg = self.border.colorBG
+                charset = self.border.charset
 
             bar_top = self.y + self.header.rows
             if self.border.style != TerminalTiler.Border.NO_BORDER:
@@ -700,21 +752,21 @@ class TerminalTiler:
 
             # draw
             if bar1 == bar2:
-                self.write(f"\x1b[{bar_top + bar1};{self.x + self.width - 2}H{self.border.charset.boxFull}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{bar_top + bar1};{self.x + self.width - 2}H{charset.boxFull}".encode(), color_fg, color_bg)
             else:
-                self.write(f"\x1b[{bar_top + bar1};{self.x + self.width - 2}H{self.border.charset.boxLower}".encode(), color_fg, color_bg)
-                self.write(f"\x1b[{bar_top + bar2};{self.x + self.width - 2}H{self.border.charset.boxUpper}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{bar_top + bar1};{self.x + self.width - 2}H{charset.boxLower}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{bar_top + bar2};{self.x + self.width - 2}H{charset.boxUpper}".encode(), color_fg, color_bg)
 
         def drawText(self):
             """
             Renders the visible portion of the text buffer to the terminal.
             """
             if self.focused:
-                color_fg = self.colors.get("TEXT_FG_F", None)
-                color_bg = self.colors.get("TEXT_BG_F", None)
+                color_fg = self.colorFG_F
+                color_bg = self.colorBG_F
             else:
-                color_fg = self.colors.get("TEXT_FG", None)
-                color_bg = self.colors.get("TEXT_BG", None)
+                color_fg = self.colorFG
+                color_bg = self.colorBG
             row = self.ty
             start = max(0, min(self.tIndex, len(self.text) - self.rows))
             lines = list(self.text)[start:start + self.rows]
@@ -802,11 +854,11 @@ class TerminalTiler:
             Renders header to terminal.
             """
             if self.focused:
-                color_fg = self.colors.get("HEADER_FG_F", None)
-                color_bg = self.colors.get("HEADER_BG_F", None)
+                color_fg = self.header.colorFG_F
+                color_bg = self.header.colorBG_F
             else:
-                color_fg = self.colors.get("HEADER_FG", None)
-                color_bg = self.colors.get("HEADER_BG", None)
+                color_fg = self.header.colorFG
+                color_bg = self.header.colorBG
             row = self.hy
             lines = self.header.text
             cols = self.cols if self.sizeMode != TerminalTiler.Style.Size.SCROLLING else self.cols + 2
@@ -893,6 +945,84 @@ class TerminalTiler:
                 str: DisplayTile text.
             """
             return "\n".join([text.strip() for text in list(self.text)])
+
+        def setColors(self, colors:dict[str, tuple[int, int, int]]=None):
+            """
+            Sets the colors used to render the tile, border, and header.
+
+            If `colors` is ``None``, all colors are reset to None.
+
+            The `colors` dictionary may contain any combination of the following keys:
+
+                Text:
+                    - "TEXT_FG"     : Text foreground color
+                    - "TEXT_BG"     : Text background color
+                    - "TEXT_FG_F"   : Focused text foreground color
+                    - "TEXT_BG_F"   : Focused text background color
+
+                Border:
+                    - "BORDER_FG"   : Border foreground color
+                    - "BORDER_BG"   : Border background color
+                    - "BORDER_FG_F" : Focused border foreground color
+                    - "BORDER_BG_F" : Focused border background color
+
+                Header:
+                    - "HEADER_FG"   : Header foreground color
+                    - "HEADER_BG"   : Header background color
+                    - "HEADER_FG_F" : Focused header foreground color
+                    - "HEADER_BG_F" : Focused header background color
+
+            Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+            component is an integer in the range 0-255.
+
+            Args:
+                colors: Dictionary mapping color names to RGB tuples. Unspecified
+                    colors are left unchanged. If ``None``, all colors are reset.
+            """
+            if colors is None:
+                self.colorFG = None
+                self.colorBG = None
+                self.colorFG_F = None
+                self.colorBG_F = None
+
+                self.border.colorFG = None
+                self.border.colorBG = None
+                self.border.colorFG_F = None
+                self.border.colorBG_F = None
+
+                self.header.colorFG = None
+                self.header.colorBG = None
+                self.header.colorFG_F = None
+                self.header.colorBG_F = None
+
+            else:
+                for k, v in colors.items():
+                    if k == "TEXT_FG":
+                        self.colorFG = v
+                    elif k == "TEXT_BG":
+                        self.colorBG = v
+                    elif k == "TEXT_FG_F":
+                        self.colorFG_F = v
+                    elif k == "TEXT_BG_F":
+                        self.colorBG_F = v
+
+                    elif k == "BORDER_FG":
+                        self.border.colorFG = v
+                    elif k == "BORDER_BG":
+                        self.border.colorBG = v
+                    elif k == "BORDER_FG_F":
+                        self.border.colorFG_F = v
+                    elif k == "BORDER_BG_F":
+                        self.border.colorBG_F = v
+
+                    elif k == "HEADER_FG":
+                        self.header.colorFG = v
+                    elif k == "HEADER_BG":
+                        self.header.colorBG = v
+                    elif k == "HEADER_FG_F":
+                        self.header.colorFG_F = v
+                    elif k == "HEADER_BG_F":
+                        self.header.colorBG_F = v
 
     class InputTile:
         """
@@ -1057,8 +1187,8 @@ class TerminalTiler:
                 self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
                 self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
 
-            self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width)}".encode(), color_fg, color_bg)
-            self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width)}".encode(), color_fg, color_bg)
+            self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width, self.focused)}".encode(), color_fg, color_bg)
+            self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width, self.focused)}".encode(), color_fg, color_bg)
 
         def drawInput(self):
             """
@@ -1331,6 +1461,7 @@ class TerminalTiler:
                 textJust=TerminalTiler.Style.Justify.LJUST,
                 sizeMode=TerminalTiler.Style.Size.FIXED,
                 border=border,
+                borderFocused=border,
                 header=TerminalTiler.Header()
             )
             # colors
@@ -1672,6 +1803,7 @@ class TerminalTiler:
                 textJust=textJust,
                 sizeMode=TerminalTiler.Style.Size.FIXED,
                 border=border,
+                borderFocused=border,
                 header=header
             )
             # colors
@@ -1961,6 +2093,7 @@ class TerminalTiler:
                     textJust=textJust,
                     sizeMode=TerminalTiler.Style.Size.FIXED,
                     border=TerminalTiler.Border(),
+                    borderFocused=TerminalTiler.Border(),
                     header=TerminalTiler.Header()
                 )
 
@@ -1982,7 +2115,7 @@ class TerminalTiler:
                 self.cells = cells
                 self.size = size # width/height of row/col
 
-        def __init__(self, write_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap: int, textJust: int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+        def __init__(self, write_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap: int, textJust: int, border:"TerminalTiler.Border", borderFocused:"TerminalTiler.Border", header:"TerminalTiler.Header"):
             self.table_rows = 0
             self.table_cols = 0
             self.row_list = []
@@ -2008,6 +2141,7 @@ class TerminalTiler:
                 textJust=TerminalTiler.Style.Justify.LJUST,
                 sizeMode=TerminalTiler.Style.Size.FIXED,
                 border=border,
+                borderFocused=borderFocused,
                 header=header
             )
             self.colors = self.displayTile.colors
@@ -2232,35 +2366,60 @@ class TerminalTiler:
 
     def addDisplayTile(self,
         x:int, y:int, width:int, height:int,
-        visible:bool=True,
+        visible:bool=True, canFocus:bool=True,
         textWrap:int=None, textJust:int=None, sizeMode:int=None,
-        borderStyle:int=None, borderChar:str=None,
-        headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->DisplayTile:
+        colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None, colorFG_F:tuple[int, int, int]=None, colorBG_F:tuple[int, int, int]=None,
+        borderStyle:int=None, borderChar:str=None, borderStyleFocused:int=None, borderCharFocused:str=None,
+        borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None, borderFG_F:tuple[int, int, int]=None, borderBG_F:tuple[int, int, int]=None,
+        headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False,
+        headerFG:tuple[int, int, int]=None, headerBG:tuple[int, int, int]=None, headerFG_F:tuple[int, int, int]=None, headerBG_F:tuple[int, int, int]=None,
+        )->DisplayTile:
         """
-        Creates and registers a new DisplayTile in the terminal layout.
+        Creates, configures, and registers a new DisplayTile.
 
-        Performs boundary validation against the terminal size to ensure
-        the tile fits within the visible viewport. Then constructs a DisplayTile
-        instance with the specified border and header configuration stores it in self.tiles[].
+        The tile is validated to ensure it fits within the terminal viewport,
+        then initialized with the specified text, color, border, and header
+        settings before being added to the terminal's tile collection.
 
         Args:
-            x (int): DisplayTile origin column (1-based).
-            y (int): DisplayTile origin row (1-based).
-            width (int): DisplayTile width in characters.
-            height (int): DisplayTile height in rows.
-            visible (bool): Show DisplayTile?
-            textWrap (int, optional): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-            textJust (int, optional): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-            sizeMode (int, optional): Text buffer sizing. Style.Size.FIXED or Style.Size.SCROLLING.
+            x (int): Tile origin column (1-based).
+            y (int): Tile origin row (1-based).
+            width (int): Tile width in characters.
+            height (int): Tile height in rows.
+            visible (bool): Whether the tile is initially visible.
+            canFocus (bool): Whether the tile can be focused.
+
+            textWrap (int, optional): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textJust (int, optional): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+            sizeMode (int, optional): Text buffer sizing mode. Style.Size.FIXED or Style.Size.SCROLLING.
+
+            colorFG (tuple[int, int, int], optional): Text foreground RGB color.
+            colorBG (tuple[int, int, int], optional): Text background RGB color.
+            colorFG_F (tuple[int, int, int], optional): Focused text foreground RGB color. Defaults to `colorFG`.
+            colorBG_F (tuple[int, int, int], optional): Focused text background RGB color. Defaults to `colorBG`.
+
             borderStyle (int, optional): Border style constant.
-            borderChar (str, optional): Custom border character.
+            borderChar (str, optional): Custom border character set. Overrides `borderStyle`.
+            borderStyleFocused (int, optional): Border style used while focused. Defaults to `borderStyle`.
+            borderCharFocused (str, optional): Custom focused border character set. Overrides `borderStyleFocused`. Defaults to `borderChar`.
+
+            borderFG (tuple[int, int, int], optional): Border foreground RGB color.
+            borderBG (tuple[int, int, int], optional): Border background RGB color.
+            borderFG_F (tuple[int, int, int], optional): Focused border foreground RGB color. Defaults to `borderFG`.
+            borderBG_F (tuple[int, int, int], optional): Focused border background RGB color. Defaults to `borderBG`.
+
             headerLines (int): Number of header rows.
-            headerTextWrap (int, optional): Header text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-            headerTextJust (int, optional): Header text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-            headerBorder (bool): Draw border between header and text?
+            headerTextWrap (int, optional): Header text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            headerTextJust (int, optional): Header text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+            headerBorder (bool): Whether to draw a separator between the header and the tile body.
+
+            headerFG (tuple[int, int, int], optional): Header foreground RGB color.
+            headerBG (tuple[int, int, int], optional): Header background RGB color.
+            headerFG_F (tuple[int, int, int], optional): Focused header foreground RGB color. Defaults to `headerFG`.
+            headerBG_F (tuple[int, int, int], optional): Focused header background RGB color. Defaults to `headerBG`.
 
         Returns:
-            DisplayTile: DisplayTile object.
+            DisplayTile: The newly created DisplayTile instance.
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
@@ -2277,19 +2436,33 @@ class TerminalTiler:
             width=width,
             height=height,
             visible=visible,
-            canFocus=True,
+            canFocus=canFocus,
             textWrap=textWrap,
             textJust=textJust,
             sizeMode=sizeMode,
+            colorFG=colorFG,
+            colorBG=colorBG,
+            colorFG_F=colorFG_F,
+            colorBG_F=colorBG_F,
             border=TerminalTiler.Border(
                 style=borderStyle,
-                charset=borderChar
+                charset=borderChar,
+                colorFG=borderFG,
+                colorBG=borderBG,
+                style_F=borderStyleFocused,
+                charset_F=borderCharFocused,
+                colorFG_F=borderFG_F,
+                colorBG_F=borderBG_F
             ),
             header=TerminalTiler.Header(
                 lines=headerLines,
                 textWrap=headerTextWrap,
                 textJust=headerTextJust,
-                hasBorder=headerBorder
+                hasBorder=headerBorder,
+                colorFG=headerFG,
+                colorBG=headerBG,
+                colorFG_F=headerFG_F,
+                colorBG_F=headerBG_F
             )
         )
         self.tiles.append(tile)
