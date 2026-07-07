@@ -302,7 +302,7 @@ class TerminalTiler:
         """
 
         def __init__(self,
-            lines:int=0, hasBorder:bool=False,
+            lines:int=0,
             textWrap:int=0, textJust:int=0,
             colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None,
             colorFG_F:tuple[int, int, int]=None, colorBG_F:tuple[int, int, int]=None):
@@ -311,13 +311,11 @@ class TerminalTiler:
 
             Args:
                 lines (int): Maximum number of text rows stored.
-                hasBorder (bool): Render border between header and text?
                 textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
                 textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
             """
             self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
             self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST
-            self.hasBorder = hasBorder
             self.colorFG = colorFG
             self.colorBG = colorBG
             self.colorFG_F = colorFG_F if colorFG_F is not None else colorFG
@@ -638,7 +636,8 @@ class TerminalTiler:
                 self.cols -= 2
                 self.hx += 1
                 self.hy += 1
-            if self.header.hasBorder:
+
+            if self.header.rows > 0:
                 self.ty += 1
                 self.rows -= 1
 
@@ -674,7 +673,7 @@ class TerminalTiler:
                     self.write(f"\x1b[{row};{self.x + self.width - 1}H{charset.lineV}".encode(), color_fg, color_bg)
 
                 self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width, self.focused)}".encode(), color_fg, color_bg)
-                if self.header.hasBorder:
+                if self.header.rows > 0:
                     self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width, self.focused)}".encode(), color_fg, color_bg)
                 self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width, self.focused)}".encode(), color_fg, color_bg)
 
@@ -696,11 +695,8 @@ class TerminalTiler:
                 charset = self.border.charset
 
             #top
-            header_height = self.header.rows
-            cornerTop = charset.cornerNE
-            if self.header.hasBorder:
-                header_height += 1
-                cornerTop = charset.junctionVW
+            header_height = self.header.rows + 1
+            cornerTop = charset.junctionVW
             self.write(f"\x1b[{self.y + header_height};{self.x + self.width - 3}H{charset.junctionHS + charset.lineH + cornerTop}".encode(), color_fg, color_bg)
 
             #middle
@@ -728,9 +724,8 @@ class TerminalTiler:
 
             bar_top = self.y + self.header.rows
             if self.border.style != TerminalTiler.Border.NO_BORDER:
-                bar_top += 1
-            if self.header.hasBorder:
-                bar_top += 1
+                bar_top += 2
+
             # clear
             for row in range(bar_top, self.y + self.height - 1):
                 self.write(f"\x1b[{row};{self.x + self.width - 2}H ".encode(), color_fg, color_bg)
@@ -2371,7 +2366,7 @@ class TerminalTiler:
         colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None, colorFG_F:tuple[int, int, int]=None, colorBG_F:tuple[int, int, int]=None,
         borderStyle:int=None, borderChar:str=None, borderStyleFocused:int=None, borderCharFocused:str=None,
         borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None, borderFG_F:tuple[int, int, int]=None, borderBG_F:tuple[int, int, int]=None,
-        headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False,
+        headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None,
         headerFG:tuple[int, int, int]=None, headerBG:tuple[int, int, int]=None, headerFG_F:tuple[int, int, int]=None, headerBG_F:tuple[int, int, int]=None,
         )->DisplayTile:
         """
@@ -2411,7 +2406,6 @@ class TerminalTiler:
             headerLines (int): Number of header rows.
             headerTextWrap (int, optional): Header text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
             headerTextJust (int, optional): Header text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-            headerBorder (bool): Whether to draw a separator between the header and the tile body.
 
             headerFG (tuple[int, int, int], optional): Header foreground RGB color.
             headerBG (tuple[int, int, int], optional): Header background RGB color.
