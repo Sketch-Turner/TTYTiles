@@ -817,12 +817,13 @@ class TerminalTiler:
                         self.text.append(self.justify(output, self.textJust, self.cols))
                         self.tIndex += len(self.text) - 1
 
-            # write text
-            self.drawText()
+            if self.visible:
+                # write text
+                self.drawText()
 
-            # update scrollbar position
-            if self.sizeMode == TerminalTiler.Style.Size.SCROLLING:
-                self.drawScrollbar()
+                # update scrollbar position
+                if self.sizeMode == TerminalTiler.Style.Size.SCROLLING:
+                    self.drawScrollbar()
 
         def updateHeader(self, text:str):
             """
@@ -842,26 +843,29 @@ class TerminalTiler:
                     for i in range(0, len(line), cols):
                         output = line[i:i+cols]
                         self.header.text.append(self.justify(output, self.header.textJust, cols))
-            self.drawHeader()
+
+            if self.visible:
+                self.drawHeader()
 
         def drawHeader(self):
             """
             Renders header to terminal.
             """
-            if self.focused:
-                color_fg = self.header.colorFG_F
-                color_bg = self.header.colorBG_F
-            else:
-                color_fg = self.header.colorFG
-                color_bg = self.header.colorBG
-            row = self.hy
-            lines = self.header.text
-            cols = self.cols if self.sizeMode != TerminalTiler.Style.Size.SCROLLING else self.cols + 2
-            if len(lines) < self.header.rows:
-                lines += [' ' * cols] * (self.rows - len(lines))
-            for line in lines:
-                self.write(f"\x1b[{row};{self.hx}H{line}".encode(), color_fg, color_bg)
-                row += 1
+            if self.header.rows > 0:
+                if self.focused:
+                    color_fg = self.header.colorFG_F
+                    color_bg = self.header.colorBG_F
+                else:
+                    color_fg = self.header.colorFG
+                    color_bg = self.header.colorBG
+                row = self.hy
+                lines = self.header.text
+                cols = self.cols if self.sizeMode != TerminalTiler.Style.Size.SCROLLING else self.cols + 2
+                if len(lines) < self.header.rows:
+                    lines += [' ' * cols] * (self.rows - len(lines))
+                for line in lines:
+                    self.write(f"\x1b[{row};{self.hx}H{line}".encode(), color_fg, color_bg)
+                    row += 1
 
         def handleInput(self, key:str):
             """
@@ -1018,6 +1022,9 @@ class TerminalTiler:
                         self.header.colorFG_F = v
                     elif k == "HEADER_BG_F":
                         self.header.colorBG_F = v
+
+            if self.visible:
+                self.show()
 
     class InputTile:
         """
