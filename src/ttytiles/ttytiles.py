@@ -708,8 +708,11 @@ class TerminalTiler:
                 charset = self.border.charset
 
             #top
-            header_height = self.header.rows + 1
-            cornerTop = charset.junctionVW
+            header_height = self.header.rows
+            cornerTop = charset.cornerNE
+            if self.header.rows > 0:
+                header_height += 1
+                cornerTop = charset.junctionVW
             self.write(f"\x1b[{self.y + header_height};{self.x + self.width - 3}H{charset.junctionHS + charset.lineH + cornerTop}".encode(), color_fg, color_bg)
 
             #middle
@@ -737,7 +740,9 @@ class TerminalTiler:
 
             bar_top = self.y + self.header.rows
             if self.border.style != TerminalTiler.Border.NO_BORDER:
-                bar_top += 2
+                bar_top += 1
+            if self.header.rows > 0:
+                bar_top += 1
 
             # clear
             for row in range(bar_top, self.y + self.height - 1):
