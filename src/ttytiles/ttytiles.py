@@ -2216,9 +2216,17 @@ class TerminalTiler:
                 extra = total_space % gap_count
 
                 gaps = [base] * gap_count
+                order = []
+                left = (gap_count - 1) // 2
+                right = gap_count // 2
 
-                mid = (gap_count - 1) / 2
-                order = sorted(range(gap_count), key=lambda i: (abs(i - mid), i))
+                while left >= 0 or right < gap_count:
+                    if left >= 0:
+                        order.append(left)
+                        left -= 1
+                    if right < gap_count:
+                        order.append(right)
+                        right += 1
 
                 for i in range(extra):
                     gaps[order[i]] += 1
