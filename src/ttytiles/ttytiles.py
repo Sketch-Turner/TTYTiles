@@ -2235,6 +2235,7 @@ class TerminalTiler:
                     rect.displayTile.drawBorder()
                     rect.displayTile.text.clear()
                     rect.displayTile.update(rect.text)
+                    rect.displayTile.drawText()
 
                     x += rect.displayTile.width + gaps[i + 1]
 
