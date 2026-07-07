@@ -2063,15 +2063,25 @@ class TerminalTiler:
             """
             Stores text and formatting info for a Table cell.
             """
-            def __init__(self, write_func, text:str, textWrap:int, textJust:int):
+            def __init__(self, write_func,
+                text:str, textWrap:int, textJust:int,
+                colorFG:tuple[int, int, int], colorBG:tuple[int, int, int], colorFG_F:tuple[int, int, int], colorBG_F:tuple[int, int, int]):
                 """
-                Initialize a table cell.
+                Initializes a table cell.
+
+                Configures the cell text, layout, and colors used when the cell
+                is rendered.
 
                 Args:
-                    write_func (Callable): Function used by the display tile to write rendered output to the terminal.
-                    text (str): Initial text displayed in the cell.
-                    textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-                    textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                    write_func: Function used to write text to the terminal.
+                    text (str): Initial cell text.
+                    textWrap (int): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                    textJust (int): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
+                    colorFG (tuple[int, int, int]): Cell foreground RGB color.
+                    colorBG (tuple[int, int, int]): Cell background RGB color.
+                    colorFG_F (tuple[int, int, int]): Focused cell foreground RGB color.
+                    colorBG_F (tuple[int, int, int]): Focused cell background RGB color.
                 """
                 self.text = text
                 self.textWrap = textWrap
@@ -2086,9 +2096,12 @@ class TerminalTiler:
                     canFocus=False,
                     textWrap=textWrap,
                     textJust=textJust,
+                    colorFG=colorFG,
+                    colorBG=colorBG,
+                    colorFG_F=colorFG_F,
+                    colorBG_F=colorBG_F,
                     sizeMode=TerminalTiler.Style.Size.FIXED,
                     border=TerminalTiler.Border(),
-                    borderFocused=TerminalTiler.Border(),
                     header=TerminalTiler.Header()
                 )
 
@@ -2105,12 +2118,155 @@ class TerminalTiler:
                 self.displayTile.text.clear()
                 self.displayTile.update(text)
 
+            def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
+                """
+                Sets the colors used to render the text.
+
+                If `colors` is ``None``, all colors are reset to None.
+
+                The `colors` dictionary may contain any combination of the following keys:
+
+                    Text:
+                        - "TEXT_FG"     : Text foreground color
+                        - "TEXT_BG"     : Text background color
+                        - "TEXT_FG_F"   : Focused text foreground color
+                        - "TEXT_BG_F"   : Focused text background color
+
+                Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+                component is an integer in the range 0-255.
+
+                Args:
+                    colors: Dictionary mapping color names to RGB tuples. Unspecified
+                        colors are left unchanged. If ``None``, all colors are reset.
+                """
+                self.displayTile.setColor(colors=colors)
+
+            def setTextWrap(self, textWrap:int=None):
+                """
+                Sets the cell's text wrapping mode.
+
+                If `textWrap` is invalid or ``None``, the wrapping mode defaults
+                to `Style.Wrap.NOWRAP`.
+
+                Args:
+                    textWrap (int, optional): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                """
+                self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
+                self.displayTile.textWrap = self.textWrap
+
+            def setTextJust(self, textJust:int=None):
+                """
+                Sets the cell's text justification mode.
+
+                If `textJust` is invalid or ``None``, the justification defaults
+                to `Style.Justify.LJUST`.
+
+                Args:
+                    textJust (int, optional): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                """
+                self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST
+                self.displayTile.textJust = self.textJust
+
         class Axis:
+            """
+            Represents a table axis (row or column).
+
+            An Axis stores a collection of cells and the size assigned to that
+            row or column during layout.
+            """
             def __init__(self, cells:list, size:int):
+                """
+                Initializes a table axis.
+
+                Args:
+                    cells (list): Cells contained in the row or column.
+                    size (int): Width (for columns) or height (for rows) in characters.
+                """
                 self.cells = cells
                 self.size = size # width/height of row/col
 
-        def __init__(self, write_func, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, textWrap: int, textJust: int, border:"TerminalTiler.Border", borderFocused:"TerminalTiler.Border", header:"TerminalTiler.Header"):
+            def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
+                """
+                Sets the colors used to render the text.
+
+                If `colors` is ``None``, all colors are reset to None.
+
+                The `colors` dictionary may contain any combination of the following keys:
+
+                    Text:
+                        - "TEXT_FG"     : Text foreground color
+                        - "TEXT_BG"     : Text background color
+                        - "TEXT_FG_F"   : Focused text foreground color
+                        - "TEXT_BG_F"   : Focused text background color
+
+                Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+                component is an integer in the range 0-255.
+
+                Args:
+                    colors: Dictionary mapping color names to RGB tuples. Unspecified
+                        colors are left unchanged. If ``None``, all colors are reset.
+                """
+                for c in self.cells:
+                    c.setColor(colors=colors)
+
+            def setTextWrap(self, textWrap:int=None):
+                """
+                Sets the text wrapping mode for every cell in the axis.
+
+                If `textWrap` is invalid or ``None``, each cell uses Style.Wrap.NOWRAP.
+
+                Args:
+                    textWrap (int, optional): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                """
+                for c in self.cells:
+                    c.setTextWrap(textWrap)
+
+            def setTextJust(self, textJust:int=None):
+                """
+                Sets the text justification mode for every cell in the axis.
+
+                If `textJust` is invalid or ``None``, each cell uses Style.Justify.LJUST.
+
+                Args:
+                    textJust (int, optional): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                """
+                for c in self.cells:
+                    c.setTextJust(textJust)
+
+        def __init__(self, write_func,
+            x:int, y:int, width:int, height:int,
+            visible:bool, canFocus:bool,
+            textWrap: int, textJust: int,
+            border:"TerminalTiler.Border",
+            header:"TerminalTiler.Header",
+            colorFG:tuple[int, int, int], colorBG:tuple[int, int, int], colorFG_F:tuple[int, int, int], colorBG_F:tuple[int, int, int]):
+            """
+            Initializes a table.
+
+            Configures the table geometry, visibility, text layout, colors, border,
+            and optional header. The table manages a grid of cells that can be
+            individually updated while sharing common rendering settings.
+
+            Args:
+                write_func: Function used to write text to the terminal.
+                x (int): Table origin column (1-based).
+                y (int): Table origin row (1-based).
+                width (int): Table width in characters.
+                height (int): Table height in rows.
+                visible (bool): Whether the table is initially visible.
+                canFocus (bool): Whether the table can receive keyboard focus.
+
+                textWrap (int): Default text wrapping mode for table cells. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int): Default text justification mode for table cells. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
+                border (TerminalTiler.Border): Border configuration.
+                header (TerminalTiler.Header): Header configuration.
+
+                colorFG (tuple[int, int, int]): Default cell foreground RGB color.
+                colorBG (tuple[int, int, int]): Default cell background RGB color.
+                colorFG_F (tuple[int, int, int]): Default focused cell foreground RGB color.
+                colorBG_F (tuple[int, int, int]): Default focused cell background RGB color.
+            """
             self.table_rows = 0
             self.table_cols = 0
             self.row_list = []
@@ -2132,16 +2288,32 @@ class TerminalTiler:
                 height=height,
                 visible=False,
                 canFocus=canFocus,
+                colorFG=None,
+                colorBG=None,
+                colorFG_F=None,
+                colorBG_F=None,
                 textWrap=TerminalTiler.Style.Wrap.NOWRAP,
                 textJust=TerminalTiler.Style.Justify.LJUST,
                 sizeMode=TerminalTiler.Style.Size.FIXED,
                 border=border,
-                borderFocused=borderFocused,
                 header=header
             )
-            self.colors = self.displayTile.colors
+
+            # colors
+            self.colorFG = colorFG
+            self.colorBG = colorBG
+            self.colorFG_F = colorFG_F
+            self.colorBG_F = colorBG_F
 
         def build(self):
+            """
+            Builds the table layout.
+
+            Creates the table cell grid and initializes the row and column axis collections.
+            The available display area is divided evenly among all rows and columns.
+
+            Existing cells and axis objects are replaced.
+            """
             col_base = (self.displayTile.cols - (self.table_cols - 1)) // self.table_cols
             col_extra = (self.displayTile.cols - (self.table_cols - 1)) % self.table_cols
 
@@ -2149,7 +2321,20 @@ class TerminalTiler:
             row_extra = (self.displayTile.rows - (self.table_rows - 1)) % self.table_rows
 
             # create the cell grid
-            self.cells = [[self.Cell(self.write, text="", textWrap=self.textWrap, textJust=self.textJust) for _ in range(self.table_cols)] for _ in range(self.table_rows)]
+            self.cells = [
+                [
+                    self.Cell(
+                        self.write,
+                        text="",
+                        textWrap=self.textWrap,
+                        textJust=self.textJust,
+                        colorFG=self.colorFG,
+                        colorBG=self.colorBG,
+                        colorFG_F=self.colorFG_F,
+                        colorBG_F=self.colorBG_F
+                    ) for _ in range(self.table_cols)
+                ] for _ in range(self.table_rows)
+            ]
 
             # create row axis list
             self.row_list = [
@@ -2168,6 +2353,20 @@ class TerminalTiler:
             ]
 
         def load(self, data:list[list]):
+            """
+            Loads tabular data into the table.
+
+            The table is resized to match the dimensions of `data`, rebuilding
+            its internal cell grid as needed. Each value is converted to a
+            string and assigned to the corresponding cell.
+
+            Rows may have different lengths. Any cells beyond the end of a
+            shorter row remain empty.
+
+            Args:
+                data (list[list]): Two-dimensional sequence of values to load
+                    into the table.
+            """
             self.table_cols = max([len(r) for r in data])
             self.table_rows = len(data)
             self.build()
@@ -2176,26 +2375,162 @@ class TerminalTiler:
                 for c in range(len(data[r])):
                     self.cells[r][c].text = str(data[r][c])
 
-        def insertRow(self, data:list, index:int=None):
-            pass
+        def insertRow(self, data: list, index: int = None):
+            """
+            Inserts a row into the table.
 
-        def insertCol(self, data:list, index:int=None):
-            pass
+            The new row uses the table's default cell formatting. If `index` is
+            ``None``, the row is appended to the end of the table.
+
+            Args:
+                data (list): Values for the new row.
+                index (int, optional): Zero-based insertion index.
+            """
+            if index is None:
+                index = self.table_rows
+            else:
+                index = max(0, min(index, self.table_rows))
+
+            row = [
+                self.Cell(
+                    self.write,
+                    text=str(data[c]) if c < len(data) else "",
+                    textWrap=self.textWrap,
+                    textJust=self.textJust,
+                    colorFG=self.colorFG,
+                    colorBG=self.colorBG,
+                    colorFG_F=self.colorFG_F,
+                    colorBG_F=self.colorBG_F
+                )
+                for c in range(max(self.table_cols, len(data)))
+            ]
+
+            self.cells.insert(index, row)
+
+            self.table_rows += 1
+            self.table_cols = max(self.table_cols, len(row))
+
+            self.row_list.insert(
+                index,
+                self.Axis(row, 0)
+            )
+
+            row_base = (self.displayTile.rows - (self.table_rows - 1)) // self.table_rows
+            row_extra = (self.displayTile.rows - (self.table_rows - 1)) % self.table_rows
+
+            self.row_list = [
+                self.Axis(
+                    self.cells[r],
+                    row_base + (1 if r < row_extra else 0)
+                )
+                for r in range(self.table_rows)
+            ]
+
+            # rebuild column axes because column cell references changed
+            self.col_list = [
+                self.Axis(
+                    [self.cells[r][c] for r in range(self.table_rows)],
+                    self.col_list[c].size if c < len(self.col_list) else 0
+                )
+                for c in range(self.table_cols)
+            ]
+
+            if self.visible:
+                self.show()
+
+        def insertCol(self, data: list, index: int = None):
+            """
+            Inserts a column into the table.
+
+            The new column uses the table's default cell formatting. If `index`
+            is ``None``, the column is appended to the end of the table.
+
+            Args:
+                data (list): Values for the new column.
+                index (int, optional): Zero-based insertion index.
+            """
+            if index is None:
+                index = self.table_cols
+            else:
+                index = max(0, min(index, self.table_cols))
+
+            # add cells to each row
+            for r in range(self.table_rows):
+                self.cells[r].insert(
+                    index,
+                    self.Cell(
+                        self.write,
+                        text=str(data[r]) if r < len(data) else "",
+                        textWrap=self.textWrap,
+                        textJust=self.textJust,
+                        colorFG=self.colorFG,
+                        colorBG=self.colorBG,
+                        colorFG_F=self.colorFG_F,
+                        colorBG_F=self.colorBG_F
+                    )
+                )
+
+            # handle empty table / extra data rows
+            while self.table_rows < len(data):
+                self.cells.append([
+                    self.Cell(
+                        self.write,
+                        text="",
+                        textWrap=self.textWrap,
+                        textJust=self.textJust,
+                        colorFG=self.colorFG,
+                        colorBG=self.colorBG,
+                        colorFG_F=self.colorFG_F,
+                        colorBG_F=self.colorBG_F
+                    )
+                    for _ in range(self.table_cols)
+                ])
+
+                self.table_rows += 1
+
+                self.cells[-1][index].text = str(data[self.table_rows - 1])
+
+            self.table_cols += 1
+
+            col_base = (self.displayTile.cols - (self.table_cols - 1)) // self.table_cols
+            col_extra = (self.displayTile.cols - (self.table_cols - 1)) % self.table_cols
+
+            self.col_list = [
+                self.Axis(
+                    [self.cells[r][c] for r in range(self.table_rows)],
+                    col_base + (1 if c < col_extra else 0)
+                )
+                for c in range(self.table_cols)
+            ]
+
+            if self.visible:
+                self.show()
 
         def update(self, x:int, y:int, text:str):
+            """
+            Updates the text of a single table cell.
+
+            Args:
+                x (int): Zero-based column index of the cell.
+                y (int): Zero-based row index of the cell.
+                text (str): New text to display in the cell.
+            """
             self.cells[y][x].update(text)
 
         def drawBorder(self):
+            """
+            Draws the table border and internal grid lines.
+            """
             if self.displayTile.border.style != TerminalTiler.Border.NO_BORDER:
                 self.displayTile.drawBorder()
 
                 # draw table lines and juncts
                 if self.focused:
-                    color_fg = self.colors.get("BORDER_FG_F", None)
-                    color_bg = self.colors.get("BORDER_BG_F", None)
+                    color_fg = self.displayTile.border.colorFG_F
+                    color_bg = self.displayTile.border.colorBG_F
                 else:
-                    color_fg = self.colors.get("BORDER_FG", None)
-                    color_bg = self.colors.get("BORDER_BG", None)
+                    color_fg = self.displayTile.border.colorFG
+                    color_bg = self.displayTile.border.colorBG
 
                 visible_cols = [c for c in self.col_list if c.size > 0]
                 visible_rows = [r for r in self.row_list if r.size > 0]
@@ -2699,34 +3034,56 @@ class TerminalTiler:
         x:int, y:int, width:int, height:int,
         visible:bool, canFocus:bool,
         textWrap:int=None, textJust:int=None,
-        borderStyle:int=None, borderChar:str=None,
-        headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->Table:
+        colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None, colorFG_F:tuple[int, int, int]=None, colorBG_F:tuple[int, int, int]=None,
+        borderStyle:int=None, borderChar:str=None, borderStyleFocused:int=None, borderCharFocused:str=None,
+        borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None, borderFG_F:tuple[int, int, int]=None, borderBG_F:tuple[int, int, int]=None,
+        headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None,
+        headerFG:tuple[int, int, int]=None, headerBG:tuple[int, int, int]=None, headerFG_F:tuple[int, int, int]=None, headerBG_F:tuple[int, int, int]=None,
+        )->Table:
         """
-        Creates and registers a new Table in the terminal layout.
+        Creates, configures, and registers a new Table.
 
-        Performs boundary validation against the terminal size to ensure
-        the tile fits within the visible viewport. Then constructs a Table
-        instance with the specified border and header configuration stores it in self.tiles[].
+        The table is validated to ensure it fits within the terminal viewport,
+        then initialized with the specified text, color, border, and header
+        settings before being added to the terminal's tile collection.
 
         Args:
             x (int): Table origin column (1-based).
             y (int): Table origin row (1-based).
             width (int): Table width in characters.
             height (int): Table height in rows.
-            visible (bool): Show Table?
-            canFocus (bool): Can this be focused?
-            textWrap (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-            textJust (int, optional): Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-            sizeMode (int, optional): Style.Size.FIXED or Style.Size.SCROLLING.
+            visible (bool): Whether the table is initially visible.
+            canFocus (bool): Whether the table can receive keyboard focus.
+
+            textWrap (int, optional): Default text wrapping mode for table cells. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textJust (int, optional): Default text justification mode for table cells. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
+            colorFG (tuple[int, int, int], optional): Default cell foreground RGB color.
+            colorBG (tuple[int, int, int], optional): Default cell background RGB color.
+            colorFG_F (tuple[int, int, int], optional): Default focused cell foreground RGB color. Defaults to `colorFG`.
+            colorBG_F (tuple[int, int, int], optional): Default focused cell background RGB color. Defaults to `colorBG`.
+
             borderStyle (int, optional): Border style constant.
-            borderChar (str, optional): Custom border character.
+            borderChar (str, optional): Custom border character set. Overrides `borderStyle`.
+            borderStyleFocused (int, optional): Border style used while focused. Defaults to `borderStyle`.
+            borderCharFocused (str, optional): Custom focused border character set. Overrides `borderStyleFocused`. Defaults to `borderChar`.
+
+            borderFG (tuple[int, int, int], optional): Border foreground RGB color.
+            borderBG (tuple[int, int, int], optional): Border background RGB color.
+            borderFG_F (tuple[int, int, int], optional): Focused border foreground RGB color. Defaults to `borderFG`.
+            borderBG_F (tuple[int, int, int], optional): Focused border background RGB color. Defaults to `borderBG`.
+
             headerLines (int, optional): Number of header rows.
-            headerTextWrap (int, optional): Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-            headerTextJust (int,  optional): Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-            headerBorder (bool, optional): Whether header has its own border.
+            headerTextWrap (int, optional): Header text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            headerTextJust (int, optional): Header text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
+            headerFG (tuple[int, int, int], optional): Header foreground RGB color.
+            headerBG (tuple[int, int, int], optional): Header background RGB color.
+            headerFG_F (tuple[int, int, int], optional): Focused header foreground RGB color. Defaults to `headerFG`.
+            headerBG_F (tuple[int, int, int], optional): Focused header background RGB color. Defaults to `headerBG`.
 
         Returns:
-            Table: Table object.
+            Table: The newly created Table instance.
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
@@ -2746,15 +3103,28 @@ class TerminalTiler:
             canFocus=canFocus,
             textWrap=textWrap,
             textJust=textJust,
+            colorFG=colorFG,
+            colorBG=colorBG,
+            colorFG_F=colorFG_F,
+            colorBG_F=colorBG_F,
             border=TerminalTiler.Border(
                 style=borderStyle,
-                charset=borderChar
+                charset=borderChar,
+                colorFG=borderFG,
+                colorBG=borderBG,
+                style_F=borderStyleFocused,
+                charset_F=borderCharFocused,
+                colorFG_F=borderFG_F,
+                colorBG_F=borderBG_F
             ),
             header=TerminalTiler.Header(
                 lines=headerLines,
                 textWrap=headerTextWrap,
                 textJust=headerTextJust,
-                hasBorder=headerBorder
+                colorFG=headerFG,
+                colorBG=headerBG,
+                colorFG_F=headerFG_F,
+                colorBG_F=headerBG_F
             )
         )
         self.tiles.append(tile)
