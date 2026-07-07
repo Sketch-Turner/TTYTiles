@@ -313,6 +313,10 @@ class TerminalTiler:
                 lines (int): Maximum number of text rows stored.
                 textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
                 textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                colorFG (tuple[int, int, int], optional): Text foreground RGB color.
+                colorBG (tuple[int, int, int], optional): Text background RGB color.
+                colorFG_F (tuple[int, int, int], optional): Focused text foreground RGB color. Defaults to `colorFG`.
+                colorBG_F (tuple[int, int, int], optional): Focused text background RGB color. Defaults to `colorBG`.
             """
             self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP
             self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST
@@ -559,22 +563,31 @@ class TerminalTiler:
             header:"TerminalTiler.Header",
             colorFG:tuple[int, int, int], colorBG:tuple[int, int, int], colorFG_F:tuple[int, int, int], colorBG_F:tuple[int, int, int]):
             """
-            Initializes a DisplayTile UI component that represents a bordered
-            terminal region with an optional header and scrollable text buffer.
+            Initializes a display tile.
+
+            Configures the tile geometry, visibility, text layout, colors, border,
+            and optional header used to render a region of the terminal.
 
             Args:
-                write_func: Used to write to terminal.
-                x (int): Column position of the tile (1-based terminal coords).
-                y (int): Row position of the tile (1-based terminal coords).
-                width (int): Total width of the tile including borders.
-                height (int): Total height of the tile including borders.
-                visible (bool): Should the item be rendered?
-                canFocus (bool): Can the item be focused?
-                textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-                textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-                sizeMode (int): Text buffer sizing. Style.Size.FIXED or Style.Size.SCROLLING.
-                border (TerminalTiler.Border): Border style/renderer instance.
-                header (TerminalTiler.Header): Header configuration and buffer.
+                write_func: Function used to write text to the terminal.
+                x (int): Tile origin column (1-based).
+                y (int): Tile origin row (1-based).
+                width (int): Tile width in characters.
+                height (int): Tile height in rows.
+                visible (bool): Whether the tile is initially visible.
+                canFocus (bool): Whether the tile can receive keyboard focus.
+
+                textWrap (int): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                sizeMode (int): Text buffer sizing mode. Style.Size.FIXED or Style.Size.SCROLLING.
+
+                border (TerminalTiler.Border): Border configuration.
+                header (TerminalTiler.Header): Header configuration.
+
+                colorFG (tuple[int, int, int]): Text foreground RGB color.
+                colorBG (tuple[int, int, int]): Text background RGB color.
+                colorFG_F (tuple[int, int, int]): Focused text foreground RGB color.
+                colorBG_F (tuple[int, int, int]): Focused text background RGB color.
             """
             self.x = x #col
             self.y = y #row
@@ -945,7 +958,7 @@ class TerminalTiler:
             """
             return "\n".join([text.strip() for text in list(self.text)])
 
-        def setColors(self, colors:dict[str, tuple[int, int, int]]=None):
+        def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
             """
             Sets the colors used to render the tile, border, and header.
 
@@ -1030,24 +1043,42 @@ class TerminalTiler:
         """
         A fixed-size terminal input tile supporting interactive text editing.
         """
-        def __init__(self, write_func, exit_event:threading.Event, x:int, y:int, width:int, height:int, visible:bool, canFocus:bool, prompt:str, border:"TerminalTiler.Border"):
+        def __init__(self, write_func, exit_event:threading.Event,
+            x:int, y:int, width:int, height:int,
+            visible:bool,
+            inputFG:tuple[int, int, int], inputBG:tuple[int, int, int], inputFG_F:tuple[int, int, int], inputBG_F:tuple[int, int, int],
+            prompt:str,
+            promptFG:tuple[int, int, int], promptBG:tuple[int, int, int], promptFG_F:tuple[int, int, int], promptBG_F:tuple[int, int, int],
+            border:"TerminalTiler.Border"):
             """
-            Initializes a terminal input tile with a fixed-size grid layout.
+            Initializes a terminal input field.
 
-            Configures geometry (position, width, height), optional border offsets,
-            prompt rendering, and input capacity limits.
+            Configures the input field geometry, visibility, prompt, colors, and
+            border used to render and interact with the control.
 
             Args:
-                write_func: Used to write to terminal.
-                exit_event (threading.Event): Exit flag.
-                x (int): Column position.
-                y (int): Row position.
-                width (int): Tile width.
-                height (int): Tile height.
-                visible (bool): Should the item be rendered?
-                canFocus (bool): Can the item be focused?
-                prompt (str): Prompt text displayed above input area.
-                border (TerminalTiler.Border): Border configuration.
+                write_func: Function used to write text to the terminal.
+                exit_event (threading.Event): Event used to signal application
+                    shutdown.
+                x (int): Input field origin column (1-based).
+                y (int): Input field origin row (1-based).
+                width (int): Input field width in characters.
+                height (int): Input field height in rows.
+                visible (bool): Whether the input field is initially visible.
+
+                inputFG (tuple[int, int, int]): Input foreground RGB color.
+                inputBG (tuple[int, int, int]): Input background RGB color.
+                inputFG_F (tuple[int, int, int]): Focused input foreground RGB color.
+                inputBG_F (tuple[int, int, int]): Focused input background RGB color.
+
+                prompt (str): Prompt displayed before the input text.
+
+                promptFG (tuple[int, int, int]): Prompt foreground RGB color.
+                promptBG (tuple[int, int, int]): Prompt background RGB color.
+                promptFG_F (tuple[int, int, int]): Focused prompt foreground RGB color.
+                promptBG_F (tuple[int, int, int]): Focused prompt background RGB color.
+
+                border (TerminalTiler.Border): Border configuration for the input field.
             """
             self.exit = exit_event
             self.write = write_func
@@ -1057,20 +1088,15 @@ class TerminalTiler:
             self.height = height 
 
             # colors
-            self.colors = {
-                "BORDER_FG": None,
-                "BORDER_BG": None,
-                "INPUT_FG": None,
-                "INPUT_BG": None,
-                "TEXT_FG": None,
-                "TEXT_BG": None,
-                "BORDER_FG_F": None,
-                "BORDER_BG_F": None,
-                "INPUT_FG_F": None,
-                "INPUT_BG_F": None,
-                "TEXT_FG_F": None,
-                "TEXT_BG_F": None
-            }
+            self.inputFG = inputFG
+            self.inputBG = inputBG
+            self.inputFG_F = inputFG_F
+            self.inputBG_F = inputBG_F
+
+            self.promptFG = promptFG
+            self.promptBG = promptBG
+            self.promptFG_F = promptFG_F
+            self.promptBG_F = promptBG_F
 
             # text
             self.rows = self.height
@@ -1097,7 +1123,7 @@ class TerminalTiler:
             self.input = queue.Queue()
             self.visible = visible
             self.focused = False
-            self.canFocus = canFocus
+            self.canFocus = True
             if self.visible:
                 self.show()
 
@@ -1135,7 +1161,7 @@ class TerminalTiler:
             # hide cursor
             self.write("\033[?25l".encode())
             self.drawBorder()
-            self.drawText()
+            self.drawPrompt()
             cX, cY = self.cursorX, self.cursorY
             self.cursorX = self.px
             self.cursorY = self.py
@@ -1155,17 +1181,17 @@ class TerminalTiler:
             for i in range(self.height):
                 self.write(f"\x1b[{self.y + i};{self.x}H{' ' * self.width}".encode())
 
-        def drawText(self):
+        def drawPrompt(self):
             """
             Renders prompt to terminal.
             """
             # render text
             if self.focused:
-                color_fg = self.colors.get("TEXT_FG_F", None)
-                color_bg = self.colors.get("TEXT_BG_F", None)
+                color_fg = self.promptFG_F
+                color_bg = self.promptBG_F
             else:
-                color_fg = self.colors.get("TEXT_FG", None)
-                color_bg = self.colors.get("TEXT_BG", None)
+                color_fg = self.promptFG
+                color_bg = self.promptBG
             row = self.ty
             for line in self.prompt:
                 self.write(f"\x1b[{row};{self.tx}H{line}".encode(), color_fg, color_bg)
@@ -1178,19 +1204,22 @@ class TerminalTiler:
                 - Top border line
                 - Bottom border line
             """
-            if self.focused:
-                color_fg = self.colors.get("BORDER_FG_F", None)
-                color_bg = self.colors.get("BORDER_BG_F", None)
-            else:
-                color_fg = self.colors.get("BORDER_FG", None)
-                color_bg = self.colors.get("BORDER_BG", None)
+            if self.border.style != TerminalTiler.Border.NO_BORDER:
+                if self.focused:
+                    color_fg = self.border.colorFG_F
+                    color_bg = self.border.colorBG_F
+                    charset = self.border.charset_F
+                else:
+                    color_fg = self.border.colorFG
+                    color_bg = self.border.colorBG
+                    charset = self.border.charset
 
-            for row in range(self.y + 1, self.y + self.height):
-                self.write(f"\x1b[{row};{self.x}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
-                self.write(f"\x1b[{row};{self.x + self.width - 1}H{self.border.charset.lineV}".encode(), color_fg, color_bg)
+                for row in range(self.y + 1, self.y + self.height):
+                    self.write(f"\x1b[{row};{self.x}H{charset.lineV}".encode(), color_fg, color_bg)
+                    self.write(f"\x1b[{row};{self.x + self.width - 1}H{charset.lineV}".encode(), color_fg, color_bg)
 
-            self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width, self.focused)}".encode(), color_fg, color_bg)
-            self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width, self.focused)}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width, self.focused)}".encode(), color_fg, color_bg)
+                self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width, self.focused)}".encode(), color_fg, color_bg)
 
         def drawInput(self):
             """
@@ -1217,11 +1246,11 @@ class TerminalTiler:
 
             # write
             if self.focused:
-                color_fg = self.colors.get("INPUT_FG_F", None)
-                color_bg = self.colors.get("INPUT_BG_F", None)
+                color_fg = self.inputFG_F
+                color_bg = self.inputBG_F
             else:
-                color_fg = self.colors.get("INPUT_FG", None)
-                color_bg = self.colors.get("INPUT_BG", None)
+                color_fg = self.inputFG
+                color_bg = self.inputBG
 
             cX, cY = self.cursorX, self.cursorY
 
@@ -1412,39 +1441,130 @@ class TerminalTiler:
             # show cursor
             self.write("\033[?25h".encode())
 
-    class ProgressBar:
-        """
-        A terminal UI region that renders a progress bar.
-        """
-        def __init__(self, write_func, max:int, x:int, y:int, width:int, height:int, visible:bool, border:"TerminalTiler.Border", barChar:str, barLeft:str, barRight:str):
+        def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
             """
-            Initialize a ProgressBar display tile.
+            Sets the colors used to render the tile, border, and header.
 
-            The progress bar is rendered inside an internal DisplayTile and tracks
-            a current value relative to a maximum value. Optional text can be shown
-            to the left, right, or overlaid on top of the bar.
+            If `colors` is ``None``, all colors are reset to None.
+
+            The `colors` dictionary may contain any combination of the following keys:
+
+                Prompt:
+                    - "PROMPT_FG"   : Prompt foreground color
+                    - "PROMPT_BG"   : Prompt background color
+                    - "PROMPT_FG_F" : Focused prompt foreground color
+                    - "PROMPT_BG_F" : Focused prompt background color
+
+                Input:
+                    - "INPUT_FG"    : Input foreground color
+                    - "INPUT_BG"    : Input background color
+                    - "INPUT_FG_F"  : Focused input foreground color
+                    - "INPUT_BG_F"  : Focused input background color
+
+                Border:
+                    - "BORDER_FG"   : Border foreground color
+                    - "BORDER_BG"   : Border background color
+                    - "BORDER_FG_F" : Focused border foreground color
+                    - "BORDER_BG_F" : Focused border background color
+
+            Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+            component is an integer in the range 0-255.
 
             Args:
-                write_func (callable): Function used to write output to the display.
+                colors: Dictionary mapping color names to RGB tuples. Unspecified
+                    colors are left unchanged. If ``None``, all colors are reset.
+            """
+            if colors is None:
+                self.promptFG = None
+                self.promptBG = None
+                self.promptFG_F = None
+                self.promptBG_F = None
+
+                self.inputFG = None
+                self.inputBG = None
+                self.inputFG_F = None
+                self.inputBG_F = None
+
+                self.border.colorFG = None
+                self.border.colorBG = None
+                self.border.colorFG_F = None
+                self.border.colorBG_F = None
+
+            else:
+                for k, v in colors.items():
+                    if k == "PROMPT_FG":
+                        self.promptFG = v
+                    elif k == "PROMPT_BG":
+                        self.promptBG = v
+                    elif k == "PROMPT_FG_F":
+                        self.promptFG_F = v
+                    elif k == "PROMPT_BG_F":
+                        self.promptBG_F = v
+
+                    elif k == "INPUT_FG":
+                        self.inputFG = v
+                    elif k == "INPUT_BG":
+                        self.inputBG = v
+                    elif k == "INPUT_FG_F":
+                        self.inputFG_F = v
+                    elif k == "INPUT_BG_F":
+                        self.inputBG_F = v
+
+                    elif k == "BORDER_FG":
+                        self.border.colorFG = v
+                    elif k == "BORDER_BG":
+                        self.border.colorBG = v
+                    elif k == "BORDER_FG_F":
+                        self.border.colorFG_F = v
+                    elif k == "BORDER_BG_F":
+                        self.border.colorBG_F = v
+
+            if self.visible:
+                self.show()
+
+    class ProgressBar:
+        """
+        A terminal UI region that renders a ProgressBar.
+        """
+        def __init__(self, write_func,
+            max:int,
+            x:int, y:int, width:int, height:int,
+            visible:bool,
+            border:"TerminalTiler.Border",
+            barChar:str, barLeft:str, barRight:str,
+            colorFG:tuple[int, int, int], colorBG:tuple[int, int, int]):
+            """
+            Initializes a ProgressBar.
+
+            Configures the ProgressBar geometry, appearance, border, and maximum
+            progress value used to determine the completion percentage.
+
+            Args:
+                write_func: Function used to write text to the terminal.
                 max (int): Maximum progress value representing 100% completion.
-                x (int): X-coordinate of the tile.
-                y (int): Y-coordinate of the tile.
-                width (int): Width of the tile in characters.
-                height (int): Height of the tile in characters.
-                visible (bool): Whether the tile is initially visible.
-                border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
-                barChar (str): Character used to draw the filled portion of the progress bar.
-                barLeft (str, optional): Character or string displayed at the left edge of the bar. Defaults to "".
-                barRight (str, optional): Character or string displayed at the right edge of the bar. Defaults to "".
+                x (int): ProgressBar origin column (1-based).
+                y (int): ProgressBar origin row (1-based).
+                width (int): ProgressBar width in characters.
+                height (int): ProgressBar height in rows.
+                visible (bool): Whether the ProgressBar is initially visible.
+
+                border (TerminalTiler.Border): Border configuration.
+
+                barChar (str): Character used to draw the filled portion of the ProgressBar.
+                barLeft (str): Character or string displayed at the left edge of the ProgressBar.
+                barRight (str): Character or string displayed at the right edge of the ProgressBar.
+
+                colorFG (tuple[int, int, int]): ProgressBar foreground RGB color.
+                colorBG (tuple[int, int, int]): ProgressBar background RGB color.
             """
             self.max = max
             self.value = 0
-            self.textLeft = "" # text on left side of progress bar
-            self.textRight = "" # text on right side of progress bar
+            self.textLeft = "" # text on left side of ProgressBar
+            self.textRight = "" # text on right side of ProgressBar
             self.textOverlay = "" # text overlayed on top of bar
             self.barChar = barChar # char used to draw bar
-            self.barLeft = barLeft # left boundary of progress bar
-            self.barRight = barRight # right boundary of progress bar
+            self.barLeft = barLeft # left boundary of ProgressBar
+            self.barRight = barRight # right boundary of ProgressBar
             self.x = x
             self.y = y
             self.width = width
@@ -1459,25 +1579,16 @@ class TerminalTiler:
                 height=height,
                 visible=visible,
                 canFocus=False,
+                colorFG=colorFG,
+                colorBG=colorBG,
+                colorFG_F=colorFG,
+                colorBG_F=colorBG,
                 textWrap=TerminalTiler.Style.Wrap.NOWRAP,
                 textJust=TerminalTiler.Style.Justify.LJUST,
                 sizeMode=TerminalTiler.Style.Size.FIXED,
                 border=border,
-                borderFocused=border,
                 header=TerminalTiler.Header()
             )
-            # colors
-            self.colors = {
-                "BORDER_FG": None,
-                "BORDER_BG": None,
-                "TEXT_FG": None,
-                "TEXT_BG": None,
-                "BORDER_FG_F": None,
-                "BORDER_BG_F": None,
-                "TEXT_FG_F": None,
-                "TEXT_BG_F": None
-            }
-            self.displayTile.colors = self.colors # link objects by reference
 
         def drawBorder(self):
             """
@@ -1487,7 +1598,7 @@ class TerminalTiler:
 
         def drawText(self):
             """
-            Render progress bar.
+            Render ProgressBar.
             """
             self.displayTile.drawText()
 
@@ -1507,7 +1618,7 @@ class TerminalTiler:
 
         def update(self, increment:int):
             """
-            Increment the progress value and redraw the progress bar.
+            Increment the progress value and redraw the ProgressBar.
             The current value is increased by increment and clamped to the
             configured maximum value. The bar is automatically resized to fit
             within the available tile width after accounting for any surrounding
@@ -1515,9 +1626,9 @@ class TerminalTiler:
 
             Three text sections will be rendered if set:
 
-                textLeft    - Rendered on left side of progress bar.
+                textLeft    - Rendered on left side of ProgressBar.
                 textOverlay - Overlay text is centered within the bar and replaces the underlying bar characters.
-                textRight   - Rendered on right side of progress bar.
+                textRight   - Rendered on right side of ProgressBar.
 
             These sections may be formatted using the following placeholders:
 
@@ -1542,32 +1653,74 @@ class TerminalTiler:
             barRaw = (self.barChar * barFilled)[:barFilled] + " " * (barWidth - barFilled)
             midIndex = (len(barRaw) - len(overlay)) // 2
             bar = barRaw[:midIndex] + overlay + barRaw[midIndex + len(overlay):]
-            self.displayTile.update((left + self.barLeft + bar + self.barRight + right)[:self.displayTile.cols])
-            self.drawText()
+
+            if self.visible:
+                self.displayTile.update((left + self.barLeft + bar + self.barRight + right)[:self.displayTile.cols])
+                self.drawText()
+
+        def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
+            """
+            Sets the colors used to render the tile and border.
+
+            If `colors` is ``None``, all colors are reset to None.
+
+            The `colors` dictionary may contain any combination of the following keys:
+
+                Text:
+                    - "TEXT_FG"     : Text foreground color
+                    - "TEXT_BG"     : Text background color
+                    - "TEXT_FG_F"   : Focused text foreground color
+                    - "TEXT_BG_F"   : Focused text background color
+
+                Border:
+                    - "BORDER_FG"   : Border foreground color
+                    - "BORDER_BG"   : Border background color
+                    - "BORDER_FG_F" : Focused border foreground color
+                    - "BORDER_BG_F" : Focused border background color
+
+            Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+            component is an integer in the range 0-255.
+
+            Args:
+                colors: Dictionary mapping color names to RGB tuples. Unspecified
+                    colors are left unchanged. If ``None``, all colors are reset.
+            """
+            self.displayTile.setColor(colors=colors)
 
     class Alert:
         """
         A terminal UI region that displays a message for a set time.
         """
-        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, x:int, y:int, width:int, height:int, textWrap:int, textJust:int, border:"TerminalTiler.Border"):
+        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event,
+            x:int, y:int, width:int, height:int,
+            text:str, textWrap:int, textJust:int,
+            border:"TerminalTiler.Border",
+            colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None):
             """
-            Initialize a Alert display tile.
+            Initializes an alert dialog.
 
-            The Alert will be rendered on top of all other elements.
+            Configures the alert geometry, text, colors, and border. The alert is
+            rendered as a popup above all other terminal elements.
 
             Args:
-                write_func (callable): Function used to write output to the display.
-                overlap_func (callable): Function used to query tile intersections.
-                popup_lock (threading.RLock): Active alert lock.
-                exit_event (threading.Event): Exit flag.
-                text (str): Alert text.
-                x (int): X-coordinate of the tile.
-                y (int): Y-coordinate of the tile.
-                width (int): Width of the tile in characters.
-                height (int): Height of the tile in characters.
-                textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-                textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-                border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
+                write_func: Function used to write text to the terminal.
+                overlap_func: Function used to determine what tiles the Alert covers.
+                popup_lock (threading.RLock): Lock used to ensure only one popup is active at a time.
+                exit_event (threading.Event): Event used to signal application shutdown.
+
+                x (int): Alert origin column (1-based).
+                y (int): Alert origin row (1-based).
+                width (int): Alert width in characters.
+                height (int): Alert height in rows.
+
+                text (str): Initial alert text.
+                textWrap (int): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
+                border (TerminalTiler.Border): Border configuration.
+
+                colorFG (tuple[int, int, int], optional): Alert foreground RGB color.
+                colorBG (tuple[int, int, int], optional): Alert background RGB color.
             """
             self.getOverlaping = overlap_func
             self.lock = popup_lock
@@ -1590,24 +1743,16 @@ class TerminalTiler:
                 height=height,
                 visible=False,
                 canFocus=False,
+                colorFG=colorFG,
+                colorBG=colorBG,
+                colorFG_F=colorFG,
+                colorBG_F=colorBG,
                 textWrap=textWrap,
                 textJust=textJust,
                 sizeMode=TerminalTiler.Style.Size.FIXED,
                 border=border,
                 header=TerminalTiler.Header()
             )
-            # colors
-            self.colors = {
-                "BORDER_FG": None,
-                "BORDER_BG": None,
-                "TEXT_FG": None,
-                "TEXT_BG": None,
-                "BORDER_FG_F": None,
-                "BORDER_BG_F": None,
-                "TEXT_FG_F": None,
-                "TEXT_BG_F": None
-            }
-            self.displayTile.colors = self.colors # link objects by reference
 
         def drawBorder(self):
             """
@@ -1697,46 +1842,76 @@ class TerminalTiler:
                 self.visible = False
                 self.displayTile.hide()
 
+        def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
+            """
+            Sets the colors used to render the tile and border.
+
+            If `colors` is ``None``, all colors are reset to None.
+
+            The `colors` dictionary may contain any combination of the following keys:
+
+                Text:
+                    - "TEXT_FG"     : Text foreground color
+                    - "TEXT_BG"     : Text background color
+                    - "TEXT_FG_F"   : Focused text foreground color
+                    - "TEXT_BG_F"   : Focused text background color
+
+                Border:
+                    - "BORDER_FG"   : Border foreground color
+                    - "BORDER_BG"   : Border background color
+                    - "BORDER_FG_F" : Focused border foreground color
+                    - "BORDER_BG_F" : Focused border background color
+
+            Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+            component is an integer in the range 0-255.
+
+            Args:
+                colors: Dictionary mapping color names to RGB tuples. Unspecified
+                    colors are left unchanged. If ``None``, all colors are reset.
+            """
+            self.displayTile.setColor(colors=colors)
+
     class MessageBox:
         """
         A terminal UI region that displays a message and allows the user to select an option.
         """
-        class ColorDict(dict):
-            def __init__(self, owner, subkey=None, subscribers=[]):
-                super().__init__()
-                self.owner = owner
-                self.subkey = subkey
-                self.subscribers = subscribers
-
-            def __setitem__(self, key, value):
-                super().__setitem__(key, value)
-
-                if self.subkey and key.startswith(self.subkey):
-                    for d in self.subscribers:
-                        d[key[len(self.subkey):]] = value
-
         class Button:
             """
             Button
             """
-            def __init__(self, write_func, value, width:int, height:int, text:str, textWrap:int, textJust:int, border:"TerminalTiler.Border", shortcut_key:str):
+            def __init__(self, write_func,
+                value, hotkey:str,
+                width:int, height:int,
+                text:str, textWrap:int, textJust:int,
+                border:"TerminalTiler.Border",
+                colorFG:tuple[int, int, int], colorBG:tuple[int, int, int], colorFG_F:tuple[int, int, int], colorBG_F:tuple[int, int, int]):
                 """
-                Initialize a Button object.
+                Initializes a button.
+
+                Configures the button appearance, text layout, border, colors,
+                activation value, and optional keyboard hotkey.
 
                 Args:
-                    write_func (callable): Function used to write output to the display.
-                    value (any): Value returned when Button is pressed.
-                    width (int): Width of the tile in characters.
-                    height (int): Height of the tile in characters.
-                    text (str): Button text.
-                    textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-                    textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+                    write_func: Function used to write text to the terminal.
+                    value: Value returned when the button is activated.
+                    hotkey (str): Keyboard key that activates the button.
+                    width (int): Button width in characters.
+                    height (int): Button height in rows.
+
+                    text (str): Button label.
+                    textWrap (int): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                    textJust (int): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
                     border (TerminalTiler.Border): Border configuration.
-                    shortcut_key (str): TerminalTiler.Keyboard key that activates the Button.
+
+                    colorFG (tuple[int, int, int]): Button foreground RGB color.
+                    colorBG (tuple[int, int, int]): Button background RGB color.
+                    colorFG_F (tuple[int, int, int]): Focused button foreground RGB color.
+                    colorBG_F (tuple[int, int, int]): Focused button background RGB color.
                 """
                 self.write = write_func
                 self.text = text
-                self.shortcut_key = shortcut_key
+                self.hotkey = hotkey
                 self.value = value
                 self.displayTile = TerminalTiler.DisplayTile(
                     write_func=write_func,
@@ -1746,6 +1921,10 @@ class TerminalTiler:
                     height=height,
                     visible=False,
                     canFocus=False,
+                    colorFG=colorFG,
+                    colorBG=colorBG,
+                    colorFG_F=colorFG_F,
+                    colorBG_F=colorBG_F,
                     textWrap=textWrap,
                     textJust=textJust,
                     sizeMode=TerminalTiler.Style.Size.FIXED,
@@ -1753,27 +1932,71 @@ class TerminalTiler:
                     header=TerminalTiler.Header()
                 )
 
-        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, text:str, headerText:str, x:int, y:int, width:int, height:int, textWrap:int, textJust:int, border:"TerminalTiler.Border", header:"TerminalTiler.Header"):
-            """
-            Initialize a MessageBox display tile.
+            def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
+                """
+                Sets the colors used to render the tile and border.
 
-            The MessageBox will be rendered on top of all other elements.
+                If `colors` is ``None``, all colors are reset to None.
+
+                The `colors` dictionary may contain any combination of the following keys:
+
+                    Text:
+                        - "TEXT_FG"     : Text foreground color
+                        - "TEXT_BG"     : Text background color
+                        - "TEXT_FG_F"   : Focused text foreground color
+                        - "TEXT_BG_F"   : Focused text background color
+
+                    Border:
+                        - "BORDER_FG"   : Border foreground color
+                        - "BORDER_BG"   : Border background color
+                        - "BORDER_FG_F" : Focused border foreground color
+                        - "BORDER_BG_F" : Focused border background color
+
+                Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+                component is an integer in the range 0-255.
+
+                Args:
+                    colors: Dictionary mapping color names to RGB tuples. Unspecified
+                        colors are left unchanged. If ``None``, all colors are reset.
+                """
+                self.displayTile.setColor(colors=colors)
+
+        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event,
+            text:str, headerText:str,
+            x:int, y:int, width:int, height:int,
+            textWrap:int, textJust:int,
+            border:"TerminalTiler.Border",
+            header:"TerminalTiler.Header",
+            colorFG:tuple[int, int, int], colorBG:tuple[int, int, int]):
+            """
+            Initializes a message box.
+
+            Configures the message box geometry, body text, header, colors, and
+            border. The message box is rendered as a popup above all other
+            terminal elements.
 
             Args:
-                write_func (callable): Function used to write output to the display.
-                overlap_func (callable): Function used to query tile intersections.
-                popup_lock (threading.RLock): Active alert lock.
-                exit_event (threading.Event): Exit flag.
-                text (str): MessageBox text.
-                headerText (str): MessageBox header text.
-                x (int): X-coordinate of the tile.
-                y (int): Y-coordinate of the tile.
-                width (int): Width of the tile in characters.
-                height (int): Height of the tile in characters.
-                textWrap (int): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-                textJust (int): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
-                border (TerminalTiler.Border): Border configuration used by the underlying DisplayTile.
-                header (TerminalTiler.Header): Header configuration used by the underlying DisplayTile.
+                write_func: Function used to write text to the terminal.
+                overlap_func: Function used to determine what tiles the Button covers.
+                popup_lock (threading.RLock): Lock used to ensure only one popup is active at a time.
+                exit_event (threading.Event): Event used to signal application shutdown.
+
+                text (str): Initial message box text.
+                headerText (str): Header text displayed at the top of the message box.
+
+                x (int): Message box origin column (1-based).
+                y (int): Message box origin row (1-based).
+                width (int): Message box width in characters.
+                height (int): Message box height in rows.
+
+                textWrap (int): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
+                border (TerminalTiler.Border): Border configuration.
+                header (TerminalTiler.Header): Header configuration.
+
+                colorFG (tuple[int, int, int]): Message box foreground RGB color.
+                colorBG (tuple[int, int, int]): Message box background RGB color.
             """
             self.write = write_func
             self.getOverlaping = overlap_func
@@ -1801,32 +2024,16 @@ class TerminalTiler:
                 height=height,
                 visible=False,
                 canFocus=False,
+                colorFG=colorFG,
+                colorBG=colorBG,
+                colorFG_F=colorFG,
+                colorBG_F=colorBG,
                 textWrap=textWrap,
                 textJust=textJust,
                 sizeMode=TerminalTiler.Style.Size.FIXED,
                 border=border,
-                borderFocused=border,
                 header=header
             )
-            # colors
-            self.colors = self.ColorDict(self, "BUTTON_")
-            self.colors.update({
-                "BORDER_FG": None,
-                "BORDER_BG": None,
-                "HEADER_FG": None,
-                "HEADER_BG": None,
-                "TEXT_FG": None,
-                "TEXT_BG": None,
-                "BUTTON_BORDER_FG": None,
-                "BUTTON_BORDER_BG": None,
-                "BUTTON_TEXT_FG": None,
-                "BUTTON_TEXT_BG": None,
-                "BUTTON_BORDER_FG_F": None,
-                "BUTTON_BORDER_BG_F": None,
-                "BUTTON_TEXT_FG_F": None,
-                "BUTTON_TEXT_BG_F": None
-            })
-            self.displayTile.colors = self.colors # link objects by reference
 
         def getButtonLayoutHeight(self)->int:
             """
@@ -1872,7 +2079,49 @@ class TerminalTiler:
 
             return total_height + 2
 
-        def addButton(self, value, width:int, height:int, text:str, textWrap:int=None, textJust:int=None, borderStyle:int=None, borderChar:str=None, shortcut_key:str=None)->Button:
+        def addButton(self,
+            value,
+            width:int, height:int,
+            text:str, textWrap:int=None, textJust:int=None,
+            colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None, colorFG_F:tuple[int, int, int]=None, colorBG_F:tuple[int, int, int]=None,
+            borderStyle:int=None, borderChar:str=None, borderStyleFocused:int=None, borderCharFocused:str=None,
+            borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None, borderFG_F:tuple[int, int, int]=None, borderBG_F:tuple[int, int, int]=None,
+            hotkey:str=None)->Button:
+            """
+            Creates and registers a new Button.
+
+            Initializes a button with the specified text, colors, border, and
+            optional keyboard hotkey before adding it to the message box.
+
+            Args:
+                value: Value returned when the button is activated.
+                width (int): Button width in characters.
+                height (int): Button height in rows.
+
+                text (str): Button label.
+                textWrap (int, optional): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+                textJust (int, optional): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
+                colorFG (tuple[int, int, int], optional): Button foreground RGB color.
+                colorBG (tuple[int, int, int], optional): Button background RGB color.
+                colorFG_F (tuple[int, int, int], optional): Focused button foreground RGB color. Defaults to `colorFG`.
+                colorBG_F (tuple[int, int, int], optional): Focused button background RGB color. Defaults to `colorBG`.
+
+                borderStyle (int, optional): Border style constant.
+                borderChar (str, optional): Custom border character set. Overrides `borderStyle`.
+                borderStyleFocused (int, optional): Border style used while focused. Defaults to `borderStyle`.
+                borderCharFocused (str, optional): Custom focused border character set. Overrides `borderStyleFocused`. Defaults to `borderChar`.
+
+                borderFG (tuple[int, int, int], optional): Border foreground RGB color.
+                borderBG (tuple[int, int, int], optional): Border background RGB color.
+                borderFG_F (tuple[int, int, int], optional): Focused border foreground RGB color. Defaults to `borderFG`.
+                borderBG_F (tuple[int, int, int], optional): Focused border background RGB color. Defaults to `borderBG`.
+
+                hotkey (str, optional): Keyboard key that activates the button.
+
+            Returns:
+                Button: The newly created Button instance.
+            """
             if width > self.displayTile.cols - 2:
                 raise ValueError(f"Button width exceeds MessageBox available space. ({width} > {self.displayTile.cols - 2})")
             elif height > self.displayTile.rows - 2:
@@ -1885,16 +2134,22 @@ class TerminalTiler:
                 text=text,
                 textWrap=textWrap,
                 textJust=textJust,
+                colorFG=colorFG,
+                colorBG=colorBG,
+                colorFG_F=colorFG_F,
+                colorBG_F=colorBG_F,
                 border=TerminalTiler.Border(
                     style=borderStyle,
-                    charset=borderChar
+                    charset=borderChar,
+                    colorFG=borderFG,
+                    colorBG=borderBG,
+                    style_F=borderStyleFocused,
+                    charset_F=borderCharFocused,
+                    colorFG_F=borderFG_F,
+                    colorBG_F=borderBG_F
                 ),
-                shortcut_key=shortcut_key
+                hotkey=hotkey
             )
-            self.colors.subscribers.append(button.displayTile.colors)
-            for k, v in self.colors.items():
-                if k.startswith(self.colors.subkey):
-                    button.displayTile.colors[k[len(self.colors.subkey):]] = v
             self.buttons.append(button)
             if self.getButtonLayoutHeight() > self.displayTile.rows:
                 raise ValueError("Unable to fit all Buttons in MessageBox available space.")
@@ -2011,7 +2266,7 @@ class TerminalTiler:
 
             else:
                 for button in self.buttons:
-                    if key == button.shortcut_key:
+                    if key == button.hotkey:
                         self.value = button.value
                         self.close.set()
                         break
@@ -2061,6 +2316,58 @@ class TerminalTiler:
             with self.lock:
                 self.visible = False
                 self.displayTile.hide()
+
+        def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
+            """
+            Sets the colors used to render the tile, border and buttons.
+
+            If `colors` is ``None``, all colors are reset to None.
+
+            The `colors` dictionary may contain any combination of the following keys:
+
+                Text:
+                    - "TEXT_FG"     : Text foreground color
+                    - "TEXT_BG"     : Text background color
+                    - "TEXT_FG_F"   : Focused text foreground color
+                    - "TEXT_BG_F"   : Focused text background color
+
+                Border:
+                    - "BORDER_FG"   : Border foreground color
+                    - "BORDER_BG"   : Border background color
+                    - "BORDER_FG_F" : Focused border foreground color
+                    - "BORDER_BG_F" : Focused border background color
+
+                Button Text:
+                    - "BUTTON_TEXT_FG"     : Button text foreground color
+                    - "BUTTON_TEXT_BG"     : Button text background color
+                    - "BUTTON_TEXT_FG_F"   : Focused button text foreground color
+                    - "BUTTON_TEXT_BG_F"   : Focused text button background color
+
+                Button Border:
+                    - "BUTTON_BORDER_FG"   : Button border foreground color
+                    - "BUTTON_BORDER_BG"   : Button border background color
+                    - "BUTTON_BORDER_FG_F" : Focused button border foreground color
+                    - "BUTTON_BORDER_BG_F" : Focused button border background color
+
+            Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+            component is an integer in the range 0-255.
+
+            Args:
+                colors: Dictionary mapping color names to RGB tuples. Unspecified
+                    colors are left unchanged. If ``None``, all colors are reset.
+            """
+            self.displayTile.setColor(colors=colors)
+
+            if colors is None:
+                for b in self.buttons:
+                    b.setColor(colors=colors)
+            else:
+                bColors = {k.removeprefix("BUTTON_"): v for k, v in colors.items() if k.startswith("BUTTON_")}
+                for b in self.buttons:
+                    b.setColor(colors=bColors)
+
+            if self.visible:
+                self.show()
 
     class Table:
         """
@@ -2577,6 +2884,15 @@ class TerminalTiler:
                         self.write(f"\x1b[{y - 1};{self.displayTile.x}H{middle_border}".encode(), color_fg, color_bg)
 
         def show(self):
+            """
+            Renders the table.
+
+            Row heights and column widths are clamped to the available display area,
+            with the final row and column expanded as needed to consume any
+            remaining space. Any cells outside the visible area are not shown.
+            """
+            self.displayTile.drawHeader()
+
             parent_x2 = self.displayTile.tx + self.displayTile.cols
             parent_y2 = self.displayTile.ty + self.displayTile.rows
 
@@ -2629,6 +2945,7 @@ class TerminalTiler:
                     cell.displayTile.resize()
                     cell.displayTile.focused = self.focused
                     cell.displayTile.text.clear()
+                    cell.displayTile.visible = True
                     cell.displayTile.update(cell.text)
 
                     x += width + 1
@@ -2659,6 +2976,65 @@ class TerminalTiler:
                 str: Table contents in CSV format.
             """
             return '\n'.join(','.join(self.escapeCSV(cell.text) for cell in row.cells) for row in self.row_list)
+
+        def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
+            """
+            Sets the colors used to render the tile, border, and header.
+
+            If `colors` is ``None``, all colors are reset to None.
+
+            The `colors` dictionary may contain any combination of the following keys:
+
+                Text:
+                    - "TEXT_FG"     : Text foreground color
+                    - "TEXT_BG"     : Text background color
+                    - "TEXT_FG_F"   : Focused text foreground color
+                    - "TEXT_BG_F"   : Focused text background color
+
+                Border:
+                    - "BORDER_FG"   : Border foreground color
+                    - "BORDER_BG"   : Border background color
+                    - "BORDER_FG_F" : Focused border foreground color
+                    - "BORDER_BG_F" : Focused border background color
+
+                Header:
+                    - "HEADER_FG"   : Header foreground color
+                    - "HEADER_BG"   : Header background color
+                    - "HEADER_FG_F" : Focused header foreground color
+                    - "HEADER_BG_F" : Focused header background color
+
+            Each color must be an RGB tuple of the form ``(R, G, B)``, where each
+            component is an integer in the range 0-255.
+
+            Args:
+                colors: Dictionary mapping color names to RGB tuples. Unspecified
+                    colors are left unchanged. If ``None``, all colors are reset.
+            """
+            if colors is None:
+                self.colorFG = None
+                self.colorBG = None
+                self.colorFG_F = None
+                self.colorBG_F = None
+
+            else:
+                for k, v in colors.items():
+                    if k == "TEXT_FG":
+                        self.colorFG = v
+                    elif k == "TEXT_BG":
+                        self.colorBG = v
+                    elif k == "TEXT_FG_F":
+                        self.colorFG_F = v
+                    elif k == "TEXT_BG_F":
+                        self.colorBG_F = v
+
+            self.displayTile.setColor(colors=colors)
+
+            for _ in self.cells:
+                for c in _:
+                    c.setColor(colors=colors)
+
+            if self.visible:
+                self.show()
 
     class SIGINT(Exception):
         """
@@ -2723,8 +3099,9 @@ class TerminalTiler:
             y (int): Tile origin row (1-based).
             width (int): Tile width in characters.
             height (int): Tile height in rows.
-            visible (bool): Whether the tile is initially visible.
-            canFocus (bool): Whether the tile can be focused.
+
+            visible (bool, optional): Whether the tile is initially visible.
+            canFocus (bool, optional): Whether the tile can be focused.
 
             textWrap (int, optional): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
             textJust (int, optional): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
@@ -2735,7 +3112,7 @@ class TerminalTiler:
             colorFG_F (tuple[int, int, int], optional): Focused text foreground RGB color. Defaults to `colorFG`.
             colorBG_F (tuple[int, int, int], optional): Focused text background RGB color. Defaults to `colorBG`.
 
-            borderStyle (int, optional): Border style constant.
+            borderStyle (int, optional): Must be one of Border.BORDER_STYLES.
             borderChar (str, optional): Custom border character set. Overrides `borderStyle`.
             borderStyleFocused (int, optional): Border style used while focused. Defaults to `borderStyle`.
             borderCharFocused (str, optional): Custom focused border character set. Overrides `borderStyleFocused`. Defaults to `borderChar`.
@@ -2745,7 +3122,7 @@ class TerminalTiler:
             borderFG_F (tuple[int, int, int], optional): Focused border foreground RGB color. Defaults to `borderFG`.
             borderBG_F (tuple[int, int, int], optional): Focused border background RGB color. Defaults to `borderBG`.
 
-            headerLines (int): Number of header rows.
+            headerLines (int, optional): Number of header rows.
             headerTextWrap (int, optional): Header text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
             headerTextJust (int, optional): Header text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
 
@@ -2794,7 +3171,6 @@ class TerminalTiler:
                 lines=headerLines,
                 textWrap=headerTextWrap,
                 textJust=headerTextJust,
-                hasBorder=headerBorder,
                 colorFG=headerFG,
                 colorBG=headerBG,
                 colorFG_F=headerFG_F,
@@ -2806,29 +3182,51 @@ class TerminalTiler:
 
     def addInputTile(self,
         x:int, y:int, width:int, height:int,
-        visible:bool=True, canFocus:bool=True,
+        visible:bool=True,
+        inputFG:tuple[int, int, int]=None, inputBG:tuple[int, int, int]=None, inputFG_F:tuple[int, int, int]=None, inputBG_F:tuple[int, int, int]=None,
         prompt:str="",
-        borderStyle:int=None, borderChar:str=None)->InputTile:
+        promptFG:tuple[int, int, int]=None, promptBG:tuple[int, int, int]=None, promptFG_F:tuple[int, int, int]=None, promptBG_F:tuple[int, int, int]=None,
+        borderStyle:int=None, borderChar:str=None, borderStyleFocused:int=None, borderCharFocused:str=None,
+        borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None, borderFG_F:tuple[int, int, int]=None, borderBG_F:tuple[int, int, int]=None
+        )->InputTile:
         """
-        Creates and registers a new InputTile in the terminal layout.
+        Creates, configures, and registers a new InputTile.
 
-        Performs boundary validation against the terminal size to ensure
-        the InputTile fits within the visible viewport. Then constructs an InputTile
-        instance with the specified border and header configuration stores it in self.tiles[].
+        The tile is validated to ensure it fits within the terminal viewport,
+        then initialized with the specified prompt, colors, and border settings
+        before being added to the terminal's tile collection.
 
         Args:
             x (int): InputTile origin column (1-based).
             y (int): InputTile origin row (1-based).
             width (int): InputTile width in characters.
             height (int): InputTile height in rows.
-            visible (bool): Show InputTile?
-            canFocus (bool): Can this be focused?
-            prompt (str): Input prompt.
+            visible (bool): Whether the InputTile is initially visible.
+
+            inputFG (tuple[int, int, int], optional): Input foreground RGB color.
+            inputBG (tuple[int, int, int], optional): Input background RGB color.
+            inputFG_F (tuple[int, int, int], optional): Focused input foreground RGB color. Defaults to `inputFG`.
+            inputBG_F (tuple[int, int, int], optional): Focused input background RGB color. Defaults to `inputBG`.
+
+            prompt (str): Prompt displayed before the input text.
+
+            promptFG (tuple[int, int, int], optional): Prompt foreground RGB color.
+            promptBG (tuple[int, int, int], optional): Prompt background RGB color.
+            promptFG_F (tuple[int, int, int], optional): Focused prompt foreground RGB color. Defaults to `promptFG`.
+            promptBG_F (tuple[int, int, int], optional): Focused prompt background RGB color. Defaults to `promptBG`.
+
             borderStyle (int, optional): Border style constant.
-            borderChar (str, optional): Custom border character.
+            borderChar (str, optional): Custom border character set. Overrides `borderStyle`.
+            borderStyleFocused (int, optional): Border style used while focused. Defaults to `borderStyle`.
+            borderCharFocused (str, optional): Custom focused border character set. Overrides `borderStyleFocused`. Defaults to `borderChar`.
+
+            borderFG (tuple[int, int, int], optional): Border foreground RGB color.
+            borderBG (tuple[int, int, int], optional): Border background RGB color.
+            borderFG_F (tuple[int, int, int], optional): Focused border foreground RGB color. Defaults to `borderFG`.
+            borderBG_F (tuple[int, int, int], optional): Focused border background RGB color. Defaults to `borderBG`.
 
         Returns:
-            InputTile: InputTile object.
+            InputTile: Newly created InputTile instance.
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
@@ -2846,11 +3244,24 @@ class TerminalTiler:
             width=width,
             height=height,
             visible=visible,
-            canFocus=canFocus,
+            inputFG=inputFG,
+            inputBG=inputBG,
+            inputFG_F=inputFG_F,
+            inputBG_F=inputBG_F,
             prompt=prompt,
+            promptFG=promptFG,
+            promptBG=promptBG,
+            promptFG_F=promptFG_F,
+            promptBG_F=promptBG_F,
             border=TerminalTiler.Border(
                 style=borderStyle,
-                charset=borderChar
+                charset=borderChar,
+                colorFG=borderFG,
+                colorBG=borderBG,
+                style_F=borderStyleFocused,
+                charset_F=borderCharFocused,
+                colorFG_F=borderFG_F,
+                colorBG_F=borderBG_F
             )
         )
         self.tiles.append(tile)
@@ -2861,29 +3272,40 @@ class TerminalTiler:
         barChar:str,
         x:int, y:int, width:int,
         visible:bool=True,
+        colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None,
         borderStyle:int=None, borderChar:str=None,
+        borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None,
         barLeft:str="", barRight:str="")->ProgressBar:
         """
-        Creates and registers a new ProgressBar in the terminal layout.
+        Creates, configures, and registers a new ProgressBar.
 
-        Performs boundary validation against the terminal size to ensure
-        the tile fits within the visible viewport. Then constructs a ProgressBar
-        instance with the specified border configuration and stores it in self.tiles[].
+        The progress bar is validated to ensure it fits within the terminal
+        viewport, then initialized with the specified appearance and border
+        settings before being added to the terminal's tile collection.
 
         Args:
-            max (int): Max value.
-            barChar (str): Character(s) used to draw the progress bar.
             x (int): ProgressBar origin column (1-based).
             y (int): ProgressBar origin row (1-based).
             width (int): ProgressBar width in characters.
-            visible (bool): Show ProgressBar?
+
+            visible (bool): Whether the ProgressBar is initially visible.
+
+            max (int): Maximum progress value representing 100% completion.
+            barChar (str): Character(s) used to draw the filled portion of the progress bar.
+            barLeft (str, optional): Character or string displayed at the left edge of the progress bar.
+            barRight (str, optional): Character or string displayed at the right edge of the progress bar.
+
+            colorFG (tuple[int, int, int], optional): Progress bar foreground RGB color.
+            colorBG (tuple[int, int, int], optional): Progress bar background RGB color.
+
             borderStyle (int, optional): Border style constant.
-            borderChar (str, optional): Custom border character.
-            barLeft (str, optional): Left boundary of progress bar.
-            barRight (str, optional): Right boundary of progress bar.
+            borderChar (str, optional): Custom border character set. Overrides `borderStyle`.
+
+            borderFG (tuple[int, int, int], optional): Border foreground RGB color.
+            borderBG (tuple[int, int, int], optional): Border background RGB color.
 
         Returns:
-            ProgressBar: ProgressBar object.
+            ProgressBar: The newly created ProgressBar instance.
         """
         height = 1
         if borderStyle:
@@ -2907,9 +3329,13 @@ class TerminalTiler:
             width=width,
             height=height,
             visible=visible,
+            colorFG=colorFG,
+            colorBG=colorBG,
             border=TerminalTiler.Border(
                 style=borderStyle,
-                charset=borderChar
+                charset=borderChar,
+                colorFG=borderFG,
+                colorBG=borderBG,
             ),
             barChar=barChar,
             barLeft=barLeft,
@@ -2921,27 +3347,37 @@ class TerminalTiler:
     def addAlert(self,
         x:int, y:int, width:int, height:int,
         text:str="", textWrap:int=None, textJust:int=None,
-        borderStyle:int=None, borderChar:str=None)->Alert:
+        colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None,
+        borderStyle:int=None, borderChar:str=None,
+        borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None)->Alert:
         """
-        Creates and registers a new Alert in the terminal layout.
+        Creates, configures, and registers a new Alert.
 
-        Performs boundary validation against the terminal size to ensure
-        the tile fits within the visible viewport. Then constructs an Alert
-        instance with the specified border configuration and stores it in self.tiles[].
+        The alert is validated to ensure it fits within the terminal viewport,
+        then initialized with the specified text, colors, and border settings
+        before being added to the terminal's tile collection.
 
         Args:
             x (int): Alert origin column (1-based).
             y (int): Alert origin row (1-based).
             width (int): Alert width in characters.
-            height (int): InputTile height in rows.
-            textWrap (int, optional): Text wrap mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
-            textJust (int, optional): Text justify mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+            height (int): Alert height in rows.
+
+            text (str, optional): Initial alert text.
+            textWrap (int, optional): Text wrapping mode. Style.Wrap.WRAP or Style.Wrap.NOWRAP.
+            textJust (int, optional): Text justification mode. Style.Justify.LJUST, Style.Justify.CENTERED, or Style.Justify.RJUST.
+
+            colorFG (tuple[int, int, int], optional): Alert foreground RGB color.
+            colorBG (tuple[int, int, int], optional): Alert background RGB color.
+
             borderStyle (int, optional): Border style constant.
-            borderChar (str, optional): Custom border character.
-            text (str, optional): Alert text.
+            borderChar (str, optional): Custom border character set. Overrides `borderStyle`.
+
+            borderFG (tuple[int, int, int], optional): Border foreground RGB color.
+            borderBG (tuple[int, int, int], optional): Border background RGB color.
 
         Returns:
-            Alert: Alert object.
+            Alert: The newly created Alert instance.
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
@@ -2962,9 +3398,13 @@ class TerminalTiler:
             height=height,
             textWrap=textWrap,
             textJust=textJust,
+            colorFG=colorFG,
+            colorBG=colorBG,
             border=TerminalTiler.Border(
                 style=borderStyle,
-                charset=borderChar
+                charset=borderChar,
+                colorFG=borderFG,
+                colorBG=borderBG,
             ),
             text=text
         )
@@ -2974,8 +3414,10 @@ class TerminalTiler:
     def addMessageBox(self,
         x:int, y:int, width:int, height:int,
         text:str="", textWrap:int=None, textJust:int=None,
+        colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None,
         borderStyle:int=None, borderChar:str=None,
-        headerText="", headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None, headerBorder:bool=False)->MessageBox:
+        borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None,
+        headerText="", headerLines:int=0, headerTextWrap:int=None, headerTextJust:int=None)->MessageBox:
         """
         Creates and registers a new MessageBox in the terminal layout.
 
@@ -3023,15 +3465,18 @@ class TerminalTiler:
             height=height,
             textWrap=textWrap,
             textJust=textJust,
+            colorFG=colorFG,
+            colorBG=colorBG,
             border=TerminalTiler.Border(
                 style=borderStyle,
-                charset=borderChar
+                charset=borderChar,
+                colorFG=borderFG,
+                colorBG=borderBG,
             ),
             header=TerminalTiler.Header(
                 lines=headerLines,
                 textWrap=headerTextWrap,
-                textJust=headerTextJust,
-                hasBorder=headerBorder
+                textJust=headerTextJust
             )
         )
         self.tiles.append(tile)
