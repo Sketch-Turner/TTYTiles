@@ -1555,7 +1555,7 @@ class TerminalTiler:
             x:int, y:int, width:int, height:int,
             visible:bool,
             border:"TerminalTiler.Border",
-            barChar:str, barLeft:str, barRight:str,
+            barChar:str, textOverlay:str, textLeft:str, textRight:str,
             colorFG:tuple[int, int, int], colorBG:tuple[int, int, int]):
             """
             Initializes a ProgressBar.
@@ -1575,8 +1575,9 @@ class TerminalTiler:
                 border (TerminalTiler.Border): Border configuration.
 
                 barChar (str): Character used to draw the filled portion of the ProgressBar.
-                barLeft (str): Character or string displayed at the left edge of the ProgressBar.
-                barRight (str): Character or string displayed at the right edge of the ProgressBar.
+                textOverlay (str): Overlay text is centered within the bar and replaces the underlying bar characters.
+                textLeft (str): Rendered on left side of ProgressBar.
+                textRight (str): Rendered on right side of ProgressBar.
 
                 colorFG (tuple[int, int, int]): ProgressBar foreground RGB color.
                 colorBG (tuple[int, int, int]): ProgressBar background RGB color.
@@ -1588,12 +1589,10 @@ class TerminalTiler:
             self.alpha = 0.1 # used for moving avg calc
             self.max = max
             self.value = 0
-            self.textLeft = "" # text on left side of ProgressBar
-            self.textRight = "" # text on right side of ProgressBar
-            self.textOverlay = "" # text overlayed on top of bar
+            self.textLeft = textLeft # text on left side of ProgressBar
+            self.textRight = textRight # text on right side of ProgressBar
+            self.textOverlay = textOverlay # text overlayed on top of bar
             self.barChar = barChar # char used to draw bar
-            self.barLeft = barLeft # left boundary of ProgressBar
-            self.barRight = barRight # right boundary of ProgressBar
             self.x = x
             self.y = y
             self.width = width
@@ -1720,7 +1719,10 @@ class TerminalTiler:
                 self.value = min(self.max, self.value + increment)
                 # calc stats
                 elapsed = now - self.startTime
-                instant = dt / increment
+                if increment != 0:
+                    instant = dt / increment
+                else:
+                    instant = 0
                 if self.averageTime == 0:
                     self.averageTime = instant
                 else:
@@ -1755,14 +1757,14 @@ class TerminalTiler:
                     REMAINING=self.formatTime(remaining)
                 )
                 # build bar 
-                barWidth = max(0, self.displayTile.cols - (len(self.barLeft) + len(self.barRight) + len(left) + len(right)))
+                barWidth = max(0, self.displayTile.cols - (len(left) + len(right)))
                 barFilled = int(barWidth * self.value / self.max)
                 barRaw = (self.barChar * barFilled)[:barFilled] + " " * (barWidth - barFilled)
                 midIndex = (len(barRaw) - len(overlay)) // 2
                 bar = barRaw[:midIndex] + overlay + barRaw[midIndex + len(overlay):]
 
                 if self.visible:
-                    self.displayTile.update((left + self.barLeft + bar + self.barRight + right)[:self.displayTile.cols])
+                    self.displayTile.update((left + bar + right)[:self.displayTile.cols])
                     self.drawText()
 
         def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
@@ -3226,7 +3228,7 @@ class TerminalTiler:
         self.keyboard = TerminalTiler.Keyboard()
         self.keyboard.subscribe(self._handleInput)
         self.keyboard.start(self.exit)
-        self.hideCursor()
+        self._write("\033[?25l".encode()) # hide cursor
         self.clearScreen()
 
     def isAlive(self)->bool:
@@ -3436,13 +3438,31 @@ class TerminalTiler:
         colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None,
         borderStyle:int=None, borderChar:str=None,
         borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None,
-        barLeft:str="", barRight:str="")->ProgressBar:
+        textOverlay:str="", textLeft:str="", textRight:str="")->ProgressBar:
         """
         Creates, configures, and registers a new ProgressBar.
 
         The progress bar is validated to ensure it fits within the terminal
         viewport, then initialized with the specified appearance and border
         settings before being added to the terminal's tile collection.
+
+        The bar is rendered as follows:
+            | textLeft | barChar * N | textOverlay | barChar * N | textRight |
+
+        Three text sections will be rendered if set:
+                textLeft    - Rendered on left side of ProgressBar.
+                textOverlay - Overlay text is centered within the bar and replaces the underlying bar characters.
+                textRight   - Rendered on right side of ProgressBar.
+
+            These sections may be formatted using the following placeholders:
+
+                {VALUE}     - Current progress value.
+                {MAX}       - Maximum progress value.
+                {PERCENT}   - Progress percentage (0-100).
+                {RATIO}     - Progress ratio (0.0-1.0).
+                {AVERAGE}   - Average time per increment.
+                {ELAPSED}   - Time elapsed since start.
+                {REMAINING} - Estimated time remaining.
 
         Args:
             x (int): ProgressBar origin column (1-based).
@@ -3453,8 +3473,9 @@ class TerminalTiler:
 
             max (int): Maximum progress value representing 100% completion.
             barChar (str): Character(s) used to draw the filled portion of the progress bar.
-            barLeft (str, optional): Character or string displayed at the left edge of the progress bar.
-            barRight (str, optional): Character or string displayed at the right edge of the progress bar.
+            textOverlay (str, optional): Overlay text is centered within the bar and replaces the underlying bar characters.
+            textLeft (str, optional): Rendered on left side of ProgressBar.
+            textRight (str, optional): Rendered on right side of ProgressBar.
 
             colorFG (tuple[int, int, int], optional): Progress bar foreground RGB color.
             colorBG (tuple[int, int, int], optional): Progress bar background RGB color.
@@ -3499,8 +3520,9 @@ class TerminalTiler:
                 colorBG=borderBG,
             ),
             barChar=barChar,
-            barLeft=barLeft,
-            barRight=barRight
+            textLeft=textLeft,
+            textRight=textRight,
+            textOverlay=textOverlay
         )
         self.tiles.append(tile)
         return tile
