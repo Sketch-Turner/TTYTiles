@@ -208,7 +208,7 @@ class TerminalTiler:
         Intercepts writes to a file descriptor using an OS pipe and forwards captured 
         output lines to a user-defined callback function in a background thread.
         """
-        def __init__(self, fd:int, exit_event:threading.Event):
+        def __init__(self, fd:int, exit_event:threading.Event, wait_con:threading.Condition):
             """
             Redirects the specified file descriptor into an internal pipe,
             starts a relay thread, and captures all future output written
@@ -221,6 +221,7 @@ class TerminalTiler:
             self.default_target = None
             self.fd = fd
             self.exit = exit_event
+            self.wait_con = wait_con
 
             self.r, self.w = os.pipe()
             self.real_fd = os.dup(fd)
@@ -293,6 +294,9 @@ class TerminalTiler:
                 os.close(self.real_fd)
             except OSError:
                 pass
+
+            with self.wait_con:
+                self.wait_con.notify_all()
 
     class Header:
         """
@@ -900,47 +904,46 @@ class TerminalTiler:
             Args:
                 key (str): Key pressed.
             """
-            with self.mutate:
-                if self.sizeMode == TerminalTiler.Style.Size.SCROLLING:
-                    if key == TerminalTiler.Keyboard.KEY_UP:
-                        top = max(0, min(self.tIndex, len(self.text) - self.rows))
-                        if top > 0:
-                            self.tIndex = top - 1
-                            # text
-                            self.drawText()
+            if self.sizeMode == TerminalTiler.Style.Size.SCROLLING:
+                if key == TerminalTiler.Keyboard.KEY_UP:
+                    top = max(0, min(self.tIndex, len(self.text) - self.rows))
+                    if top > 0:
+                        self.tIndex = top - 1
+                        # text
+                        self.drawText()
 
-                            # scrollbar
-                            self.drawScrollbar()
+                        # scrollbar
+                        self.drawScrollbar()
 
-                    elif key == TerminalTiler.Keyboard.KEY_DOWN:
-                        bottom = max(0, min(self.tIndex, len(self.text) - self.rows))
-                        if bottom < len(self.text) - self.rows:
-                            self.tIndex = bottom + 1
-                            # text
-                            self.drawText()
+                elif key == TerminalTiler.Keyboard.KEY_DOWN:
+                    bottom = max(0, min(self.tIndex, len(self.text) - self.rows))
+                    if bottom < len(self.text) - self.rows:
+                        self.tIndex = bottom + 1
+                        # text
+                        self.drawText()
 
-                            # scrollbar
-                            self.drawScrollbar()
-                    
-                    elif key == TerminalTiler.Keyboard.KEY_PAGE_UP:
-                        top = max(0, min(self.tIndex, len(self.text) - self.rows))
-                        if top > 0:
-                            self.tIndex = 0
-                            # text
-                            self.drawText()
+                        # scrollbar
+                        self.drawScrollbar()
+                
+                elif key == TerminalTiler.Keyboard.KEY_PAGE_UP:
+                    top = max(0, min(self.tIndex, len(self.text) - self.rows))
+                    if top > 0:
+                        self.tIndex = 0
+                        # text
+                        self.drawText()
 
-                            # scrollbar
-                            self.drawScrollbar()
+                        # scrollbar
+                        self.drawScrollbar()
 
-                    elif key == TerminalTiler.Keyboard.KEY_PAGE_DOWN:
-                        bottom = max(0, min(self.tIndex, len(self.text) - self.rows))
-                        if bottom < len(self.text) - self.rows:
-                            self.tIndex = len(self.text) - 1
-                            # text
-                            self.drawText()
+                elif key == TerminalTiler.Keyboard.KEY_PAGE_DOWN:
+                    bottom = max(0, min(self.tIndex, len(self.text) - self.rows))
+                    if bottom < len(self.text) - self.rows:
+                        self.tIndex = len(self.text) - 1
+                        # text
+                        self.drawText()
 
-                            # scrollbar
-                            self.drawScrollbar()
+                        # scrollbar
+                        self.drawScrollbar()
 
         def show(self):
             """
@@ -1298,175 +1301,172 @@ class TerminalTiler:
             Returns:
                 str: The final edited input string after Enter is pressed.
             """
-            with self.mutate:
-                while not self.exit.is_set():
-                    try:
-                        return self.input.get(timeout=0.1)
-                    except queue.Empty:
-                        pass
-                raise TerminalTiler.SIGINT()
+            while not self.exit.is_set():
+                try:
+                    return self.input.get(timeout=0.1)
+                except queue.Empty:
+                    pass
 
         def handleInput(self, key:str):
             """
             Handles keyboard input.
             """
-            with self.mutate:
-                # hide cursor
-                self.write("\033[?25l".encode())
+            # hide cursor
+            self.write("\033[?25l".encode())
 
-                if key == TerminalTiler.Keyboard.KEY_LEFT:
-                    if self.cursorY == self.py:
-                        # self.cursorX cannot be < px
-                        if self.cursorX > self.px:
-                            self.cursorX -= 1
-                            self.pIndex -= 1
-                            self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
-                    else:
-                        # self.cursorX cannot be < tx
-                        if self.cursorX == self.tx:
-                            # move cursor to previous line
-                            self.cursorY -= 1
-                            self.cursorX = self.tx + self.cols - 1
-                            self.pIndex -= 1
-                            self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
-                        else:
-                            self.cursorX -= 1
-                            self.pIndex -= 1
-                            self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
-
-                elif key == TerminalTiler.Keyboard.KEY_RIGHT:
-                    if self.pIndex < len(self.buffer):
-                        self.pIndex += 1
-
-                        idx = self.pIndex
-
-                        firstWidth = self.cols - (self.px - self.tx)
-
-                        if idx < firstWidth:
-                            self.cursorY = self.py
-                            self.cursorX = self.px + idx
-                        else:
-                            idx -= firstWidth
-                            self.cursorY = self.py + 1 + (idx // self.cols)
-                            self.cursorX = self.tx + (idx % self.cols)
-                        
-                        # adjust if at end of buffer
-                        if self.pIndex == self.bufferMax:
-                            self.cursorX = self.tx + self.cols
-                            self.cursorY -= 1
-
-                        self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
-
-                elif key == TerminalTiler.Keyboard.KEY_BACKSPACE:
-                    if self.pIndex > 0:
-                        # move logical cursor backward
+            if key == TerminalTiler.Keyboard.KEY_LEFT:
+                if self.cursorY == self.py:
+                    # self.cursorX cannot be < px
+                    if self.cursorX > self.px:
+                        self.cursorX -= 1
                         self.pIndex -= 1
-
-                        # move visual cursor backward
-                        if self.cursorY == self.py:
-                            if self.cursorX > self.px:
-                                self.cursorX -= 1
-                        else:
-                            if self.cursorX == self.tx:
-                                self.cursorY -= 1
-
-                                # previous row may be prompt row
-                                if self.cursorY == self.py:
-                                    self.cursorX = self.px + (self.cols - (self.px - self.tx)) - 1
-                                else:
-                                    self.cursorX = self.tx + self.cols - 1
-                            else:
-                                self.cursorX -= 1
-
-                        # remove char from buffer
-                        del self.buffer[self.pIndex]
-
-                        # redraw shifted text
-                        self.drawInput()
-
-                        # restore cursor
+                        self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+                else:
+                    # self.cursorX cannot be < tx
+                    if self.cursorX == self.tx:
+                        # move cursor to previous line
+                        self.cursorY -= 1
+                        self.cursorX = self.tx + self.cols - 1
+                        self.pIndex -= 1
+                        self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+                    else:
+                        self.cursorX -= 1
+                        self.pIndex -= 1
                         self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
-                elif key == TerminalTiler.Keyboard.KEY_DELETE:
-                    # cannot delete past end of input
-                    if self.pIndex < len(self.buffer):
-                        # remove char at cursor
-                        del self.buffer[self.pIndex]
+            elif key == TerminalTiler.Keyboard.KEY_RIGHT:
+                if self.pIndex < len(self.buffer):
+                    self.pIndex += 1
 
-                        # redraw shifted text starting at current cursor
-                        self.drawInput()
-
-                        # restore cursor
-                        self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
-
-                elif key == TerminalTiler.Keyboard.KEY_HOME:
-                    self.pIndex = 0
-                    self.cursorX = self.px
-                    self.cursorY = self.py
-
-                    # move cursor
-                    self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
-
-                elif key == TerminalTiler.Keyboard.KEY_END:
-                    self.pIndex = len(self.buffer)
-
-                    total = len(self.buffer)
+                    idx = self.pIndex
 
                     firstWidth = self.cols - (self.px - self.tx)
 
-                    if total < firstWidth:
+                    if idx < firstWidth:
                         self.cursorY = self.py
-                        self.cursorX = self.px + total
+                        self.cursorX = self.px + idx
                     else:
-                        total -= firstWidth
-
-                        self.cursorY = self.py + 1 + (total // self.cols)
-                        self.cursorX = self.tx + (total % self.cols)
-
+                        idx -= firstWidth
+                        self.cursorY = self.py + 1 + (idx // self.cols)
+                        self.cursorX = self.tx + (idx % self.cols)
+                    
                     # adjust if at end of buffer
-                    if len(self.buffer) == self.bufferMax:
+                    if self.pIndex == self.bufferMax:
                         self.cursorX = self.tx + self.cols
                         self.cursorY -= 1
 
                     self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
-                elif key == TerminalTiler.Keyboard.KEY_ESCAPE:
-                    self.buffer = []
-                    self.cursorX = self.px
-                    self.cursorY = self.py
-                    self.pIndex = 0
+            elif key == TerminalTiler.Keyboard.KEY_BACKSPACE:
+                if self.pIndex > 0:
+                    # move logical cursor backward
+                    self.pIndex -= 1
+
+                    # move visual cursor backward
+                    if self.cursorY == self.py:
+                        if self.cursorX > self.px:
+                            self.cursorX -= 1
+                    else:
+                        if self.cursorX == self.tx:
+                            self.cursorY -= 1
+
+                            # previous row may be prompt row
+                            if self.cursorY == self.py:
+                                self.cursorX = self.px + (self.cols - (self.px - self.tx)) - 1
+                            else:
+                                self.cursorX = self.tx + self.cols - 1
+                        else:
+                            self.cursorX -= 1
+
+                    # remove char from buffer
+                    del self.buffer[self.pIndex]
+
+                    # redraw shifted text
                     self.drawInput()
+
+                    # restore cursor
                     self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
-                elif key == TerminalTiler.Keyboard.KEY_ENTER:
-                    self.input.put("".join(self.buffer))
-                    self.buffer = []
-                    self.pIndex = 0
-                    self.cursorX = self.px
-                    self.cursorY = self.py
-                    # clear input
-                    self.drawInput()
-                    self.cursorX = self.px
-                    self.cursorY = self.py
-                    self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+            elif key == TerminalTiler.Keyboard.KEY_DELETE:
+                # cannot delete past end of input
+                if self.pIndex < len(self.buffer):
+                    # remove char at cursor
+                    del self.buffer[self.pIndex]
 
-                elif TerminalTiler.Keyboard.isPrintable(key) and len(self.buffer) < self.bufferMax:
-                    # insert char into buffer
-                    self.buffer.insert(self.pIndex, key)
-                    self.pIndex += 1
-
-                    # write
+                    # redraw shifted text starting at current cursor
                     self.drawInput()
 
-                    # move cursor
-                    self.cursorX += 1
-                    if (self.cursorX > self.tx + self.cols - 1) and len(self.buffer) < self.bufferMax:
-                        self.cursorX = self.tx
-                        self.cursorY += 1
+                    # restore cursor
                     self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
 
-                # show cursor
-                self.write("\033[?25h".encode())
+            elif key == TerminalTiler.Keyboard.KEY_HOME:
+                self.pIndex = 0
+                self.cursorX = self.px
+                self.cursorY = self.py
+
+                # move cursor
+                self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+            elif key == TerminalTiler.Keyboard.KEY_END:
+                self.pIndex = len(self.buffer)
+
+                total = len(self.buffer)
+
+                firstWidth = self.cols - (self.px - self.tx)
+
+                if total < firstWidth:
+                    self.cursorY = self.py
+                    self.cursorX = self.px + total
+                else:
+                    total -= firstWidth
+
+                    self.cursorY = self.py + 1 + (total // self.cols)
+                    self.cursorX = self.tx + (total % self.cols)
+
+                # adjust if at end of buffer
+                if len(self.buffer) == self.bufferMax:
+                    self.cursorX = self.tx + self.cols
+                    self.cursorY -= 1
+
+                self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+            elif key == TerminalTiler.Keyboard.KEY_ESCAPE:
+                self.buffer = []
+                self.cursorX = self.px
+                self.cursorY = self.py
+                self.pIndex = 0
+                self.drawInput()
+                self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+            elif key == TerminalTiler.Keyboard.KEY_ENTER:
+                self.input.put("".join(self.buffer))
+                self.buffer = []
+                self.pIndex = 0
+                self.cursorX = self.px
+                self.cursorY = self.py
+                # clear input
+                self.drawInput()
+                self.cursorX = self.px
+                self.cursorY = self.py
+                self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+            elif TerminalTiler.Keyboard.isPrintable(key) and len(self.buffer) < self.bufferMax:
+                # insert char into buffer
+                self.buffer.insert(self.pIndex, key)
+                self.pIndex += 1
+
+                # write
+                self.drawInput()
+
+                # move cursor
+                self.cursorX += 1
+                if (self.cursorX > self.tx + self.cols - 1) and len(self.buffer) < self.bufferMax:
+                    self.cursorX = self.tx
+                    self.cursorY += 1
+                self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
+
+            # show cursor
+            self.write("\033[?25h".encode())
 
         def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
             """
@@ -1803,7 +1803,7 @@ class TerminalTiler:
         """
         A terminal UI region that displays a message for a set time.
         """
-        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event,
+        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, wait_con:threading.Condition,
             x:int, y:int, width:int, height:int,
             text:str, textWrap:int, textJust:int,
             border:"TerminalTiler.Border",
@@ -1819,6 +1819,7 @@ class TerminalTiler:
                 overlap_func: Function used to determine what tiles the Alert covers.
                 popup_lock (threading.RLock): Lock used to ensure only one popup is active at a time.
                 exit_event (threading.Event): Event used to signal application shutdown.
+                wait_con (threading.Condition): Used to wake sleeping thread.
 
                 x (int): Alert origin column (1-based).
                 y (int): Alert origin row (1-based).
@@ -1838,6 +1839,7 @@ class TerminalTiler:
             self.getOverlaping = overlap_func
             self.lock = popup_lock
             self.exit = exit_event
+            self.wait_con = wait_con
             self.close = threading.Event() # user closed alert
             self.close_key = None
             self.text = text
@@ -1847,7 +1849,6 @@ class TerminalTiler:
             self.height = height
             self.canFocus = False
             self.visible = False
-            self.waitTime = 0.5
             self.displayTile = TerminalTiler.DisplayTile(
                 write_func=write_func,
                 x=x,
@@ -1891,9 +1892,10 @@ class TerminalTiler:
             Args:
                 key (str): Key pressed.
             """
-            with self.mutate:
-                if self.close_key and not self.close.is_set() and (key == self.close_key or self.close_key == TerminalTiler.Keyboard.KEY_ANY):
-                    self.close.set()
+            if self.close_key and not self.close.is_set() and (key == self.close_key or self.close_key == TerminalTiler.Keyboard.KEY_ANY):
+                self.close.set()
+                with self.wait_con:
+                    self.wait_con.notify_all()
 
         def show(self, duration: float = 0, close_key: str = None):
             """
@@ -1925,22 +1927,13 @@ class TerminalTiler:
                     self.displayTile.text.clear()
                     self.displayTile.update(self.text)
 
-                    remaining = duration
-
+                    # wait for set time or until keypress
                     while not self.exit.is_set() and not self.close.is_set():
+                        with self.wait_con:
+                            notified = self.wait_con.wait(None if duration < 0 else duration)
 
-                        # indefinite display
-                        if duration < 0:
-                            time.sleep(self.waitTime)
-                            continue
-
-                        # timed display
-                        if remaining <= 0:
-                            break
-
-                        sleep_time = min(self.waitTime, remaining)
-                        time.sleep(sleep_time)
-                        remaining -= sleep_time
+                            if duration >= 0 and not notified:
+                                self.close.set()
 
                     self.hide()
                     self.close_key = None
@@ -2082,7 +2075,7 @@ class TerminalTiler:
                 with self.mutate:
                     self.displayTile.setColor(colors=colors)
 
-        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event,
+        def __init__(self, write_func, overlap_func, popup_lock:threading.RLock, exit_event:threading.Event, wait_con:threading.Condition,
             text:str, headerText:str,
             x:int, y:int, width:int, height:int,
             textWrap:int, textJust:int,
@@ -2101,6 +2094,7 @@ class TerminalTiler:
                 overlap_func: Function used to determine what tiles the Button covers.
                 popup_lock (threading.RLock): Lock used to ensure only one popup is active at a time.
                 exit_event (threading.Event): Event used to signal application shutdown.
+                wait_con (threading.Condition): Used to wake sleeping thread.
 
                 text (str): Initial message box text.
                 headerText (str): Header text displayed at the top of the message box.
@@ -2124,6 +2118,7 @@ class TerminalTiler:
             self.getOverlaping = overlap_func
             self.lock = popup_lock
             self.exit = exit_event
+            self.wait_con = wait_con
             self.close = threading.Event() # user closed message
             self.input = threading.Event() # user input
             self.text = text
@@ -2378,35 +2373,40 @@ class TerminalTiler:
             Args:
                 key (str): Key pressed.
             """
-            with self.mutate:
-                # handle tab
-                if key == TerminalTiler.Keyboard.KEY_TAB:
-                    # clear old focus
-                    if 0 <= self.focusedIndex and self.focusedIndex < len(self.buttons):
-                        self.buttons[self.focusedIndex].displayTile.focused = False
+            # handle tab
+            if key == TerminalTiler.Keyboard.KEY_TAB:
+                # clear old focus
+                if 0 <= self.focusedIndex and self.focusedIndex < len(self.buttons):
+                    self.buttons[self.focusedIndex].displayTile.focused = False
 
-                    # move forward
-                    self.focusedIndex += 1
+                # move forward
+                self.focusedIndex += 1
 
-                    # apply or reset
-                    if self.focusedIndex < len(self.buttons):
-                        self.buttons[self.focusedIndex].displayTile.focused = True
-                    else:
-                        self.focusedIndex = -1
-                    
-                    self.input.set()
-
-                elif key == TerminalTiler.Keyboard.KEY_ENTER:
-                    if self.focusedIndex >= 0:
-                        self.value = self.buttons[self.focusedIndex].value
-                        self.close.set()
-
+                # apply or reset
+                if self.focusedIndex < len(self.buttons):
+                    self.buttons[self.focusedIndex].displayTile.focused = True
                 else:
-                    for button in self.buttons:
-                        if key == button.hotkey:
-                            self.value = button.value
-                            self.close.set()
-                            break
+                    self.focusedIndex = -1
+                
+                self.input.set()
+                with self.wait_con:
+                    self.wait_con.notify_all()
+
+            elif key == TerminalTiler.Keyboard.KEY_ENTER:
+                if self.focusedIndex >= 0:
+                    self.value = self.buttons[self.focusedIndex].value
+                    self.close.set()
+                    with self.wait_con:
+                        self.wait_con.notify_all()
+
+            else:
+                for button in self.buttons:
+                    if key == button.hotkey:
+                        self.value = button.value
+                        self.close.set()
+                        with self.wait_con:
+                            self.wait_con.notify_all()
+                        break
 
         def show(self):
             """
@@ -2435,10 +2435,16 @@ class TerminalTiler:
 
                         # wait for button press
                         while not self.exit.is_set() and not self.close.is_set():
-                            if self.input.is_set():
-                                self.drawButtons()
+                            with self.wait_con:
+                                while (not self.input.is_set() and not self.exit.is_set() and not self.close.is_set()):
+                                    self.wait_con.wait()
+
+                                if self.exit.is_set() or self.close.is_set():
+                                    break
+
                                 self.input.clear()
-                            time.sleep(self.waitTime)
+
+                            self.drawButtons()
 
                         self.hide()
                         # restore any tiles hidden beneath the alert
@@ -3218,9 +3224,9 @@ class TerminalTiler:
         self.cols, self.rows = os.get_terminal_size()
         self.focusedIndex = -1 # index of active element
         self.tiles = [] # holds all tile elements
-        self.waiting = False
+        self.wait_con = threading.Condition() # used to wake waiting threads
         self.waitKey = None # used by waitForKey
-        self.stdout_FDI = TerminalTiler.FDInterceptor(1, self.exit)
+        self.stdout_FDI = TerminalTiler.FDInterceptor(1, self.exit, self.wait_con)
         self.keyboard = TerminalTiler.Keyboard()
         self.keyboard.subscribe(self._handleInput)
         self.keyboard.start(self.exit)
@@ -3551,6 +3557,7 @@ class TerminalTiler:
             overlap_func=self._getIntersectingElements,
             popup_lock=self.popup,
             exit_event=self.exit,
+            wait_con=self.wait_con,
             x=x,
             y=y,
             width=width,
@@ -3616,6 +3623,7 @@ class TerminalTiler:
             overlap_func=self._getIntersectingElements,
             popup_lock=self.popup,
             exit_event=self.exit,
+            wait_con=self.wait_con,
             text=text,
             headerText=headerText,
             x=x,
@@ -3768,8 +3776,9 @@ class TerminalTiler:
 
         # if alert is not active, handle input
         elif self.popup.acquire(blocking=False):
-            if (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY) and self.waiting:
-                self.waiting = False
+            if (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY):
+                with self.wait_con:
+                    self.wait_con.notify_all()
 
             elif key == TerminalTiler.Keyboard.KEY_TAB:
                 # clear old focus
@@ -3868,19 +3877,19 @@ class TerminalTiler:
             os.write(self.stdout_FDI.real_fd, "\033[?25h".encode()) # show
             # kill threads
             self.stdout_FDI.close()
+            # notify waiting threads
+            with self.wait_con:
+                self.wait_con.notify_all()
 
-    def waitForKey(self, key:str, waitTime:float=0.5):
+    def waitForKey(self, key:str):
         """
         Blocks current thread until the specified key is pressed.
 
         Args:
             key (str):
                 Value stored in self.waitKey.
-            waitTime (float, optional):
-                Number of seconds to wait between status checks. Default: 0.5
         """
         self.waitKey = key
-        self.waiting = True
         # wait
-        while self.isAlive() and self.waiting:
-            time.sleep(waitTime)
+        with self.wait_con:
+            self.wait_con.wait()
