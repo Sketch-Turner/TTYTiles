@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Python library for managing a custom terminal IO layout. Create customizable input, output, and progress bar elements displayed on the terminal."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
