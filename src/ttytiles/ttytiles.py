@@ -1562,6 +1562,11 @@ class TerminalTiler:
                 colorFG (tuple[int, int, int]): ProgressBar foreground RGB color.
                 colorBG (tuple[int, int, int]): ProgressBar background RGB color.
             """
+            self.mutate = threading.RLock()
+            self.startTime = None
+            self.lastUpdateTime = None
+            self.averageTime = 0.0
+            self.alpha = 0.1 # used for moving avg calc
             self.max = max
             self.value = 0
             self.textLeft = "" # text on left side of ProgressBar
@@ -1595,6 +1600,9 @@ class TerminalTiler:
                 header=TerminalTiler.Header()
             )
 
+            if visible:
+                self.show()
+
         def drawBorder(self):
             """
             Render border.
@@ -1609,19 +1617,52 @@ class TerminalTiler:
 
         def show(self):
             """
-            Render element.
+            Render element. Starts timer.
             """
-            self.visible = True
-            self.displayTile.show()
+            with self.mutate:
+                self.startTime = time.monotonic()
+                self.lastUpdateTime = self.startTime
+                self.averageTime = 0.0
+                self.visible = True
+                self.displayTile.show()
 
         def hide(self):
             """
             Hide element.
             """
-            self.visible = False
-            self.displayTile.hide()
+            with self.mutate:
+                self.visible = False
+                self.displayTile.hide()
 
-        def update(self, increment:int):
+        def formatTime(self, seconds):
+            """
+            Format a duration into a compact, human-readable string.
+
+            Durations less than 10 seconds are displayed with millisecond precision
+            as seconds with three decimal places (e.g. "5.123"). Longer durations
+            are displayed as "M:SS" or "H:MM:SS" as appropriate.
+
+            Args:
+                seconds (float):
+                    Duration in seconds.
+
+            Returns:
+                str:
+                    The formatted duration string.
+            """
+            if seconds < 10:
+                return f"{seconds:.3f}"
+
+            seconds = int(seconds)
+
+            h, rem = divmod(seconds, 3600)
+            m, s = divmod(rem, 60)
+
+            if h:
+                return f"{h}:{m:02}:{s:02}"
+            return f"{m}:{s:02}"
+
+        def update(self, increment:int=1):
             """
             Increment the progress value and redraw the ProgressBar.
             The current value is increased by increment and clamped to the
@@ -1637,31 +1678,71 @@ class TerminalTiler:
 
             These sections may be formatted using the following placeholders:
 
-                {VALUE}   - Current progress value.
-                {MAX}     - Maximum progress value.
-                {PERCENT} - Progress percentage (0-100).
-                {RATIO}   - Progress ratio (0.0-1.0).
+                {VALUE}     - Current progress value.
+                {MAX}       - Maximum progress value.
+                {PERCENT}   - Progress percentage (0-100).
+                {RATIO}     - Progress ratio (0.0-1.0).
+                {AVERAGE}   - Average time per increment.
+                {ELAPSED}   - Time elapsed since start.
+                {REMAINING} - Estimated time remaining.
 
             Args:
                 increment (int):
                     Amount to add to the current progress value.
             """
-            # increment bar value
-            self.value = min(self.max, self.value + increment)
-            # get formatted text
-            left = self.textLeft.format(VALUE=self.value, MAX=self.max, PERCENT=100*self.value/self.max, RATIO=self.value/self.max)
-            right = self.textRight.format(VALUE=self.value, MAX=self.max, PERCENT=100*self.value/self.max, RATIO=self.value/self.max)
-            overlay = self.textOverlay.format(VALUE=self.value, MAX=self.max, PERCENT=100*self.value/self.max, RATIO=self.value/self.max)
-            # build bar 
-            barWidth = max(0, self.displayTile.cols - (len(self.barLeft) + len(self.barRight) + len(left) + len(right)))
-            barFilled = int(barWidth * self.value / self.max)
-            barRaw = (self.barChar * barFilled)[:barFilled] + " " * (barWidth - barFilled)
-            midIndex = (len(barRaw) - len(overlay)) // 2
-            bar = barRaw[:midIndex] + overlay + barRaw[midIndex + len(overlay):]
+            with self.mutate:
+                # get time diff
+                now = time.monotonic()
+                dt = now - self.lastUpdateTime
+                self.lastUpdateTime = now
+                # increment bar value
+                self.value = min(self.max, self.value + increment)
+                # calc stats
+                elapsed = now - self.startTime
+                instant = dt / increment
+                if self.averageTime == 0:
+                    self.averageTime = instant
+                else:
+                    self.averageTime = ((1 - self.alpha) * self.averageTime + self.alpha * instant)
+                remaining = (self.max - self.value) * self.averageTime
+                # get formatted text
+                left = self.textLeft.format(
+                    VALUE=self.value,
+                    MAX=self.max,
+                    PERCENT=100*self.value/self.max,
+                    RATIO=self.value/self.max,
+                    AVERAGE=self.formatTime(self.averageTime),
+                    ELAPSED=self.formatTime(elapsed),
+                    REMAINING=self.formatTime(remaining)
+                )
+                right = self.textRight.format(
+                    VALUE=self.value,
+                    MAX=self.max,
+                    PERCENT=100*self.value/self.max,
+                    RATIO=self.value/self.max,
+                    AVERAGE=self.formatTime(self.averageTime),
+                    ELAPSED=self.formatTime(elapsed),
+                    REMAINING=self.formatTime(remaining)
+                )
+                overlay = self.textOverlay.format(
+                    VALUE=self.value,
+                    MAX=self.max,
+                    PERCENT=100*self.value/self.max,
+                    RATIO=self.value/self.max,
+                    AVERAGE=self.formatTime(self.averageTime),
+                    ELAPSED=self.formatTime(elapsed),
+                    REMAINING=self.formatTime(remaining)
+                )
+                # build bar 
+                barWidth = max(0, self.displayTile.cols - (len(self.barLeft) + len(self.barRight) + len(left) + len(right)))
+                barFilled = int(barWidth * self.value / self.max)
+                barRaw = (self.barChar * barFilled)[:barFilled] + " " * (barWidth - barFilled)
+                midIndex = (len(barRaw) - len(overlay)) // 2
+                bar = barRaw[:midIndex] + overlay + barRaw[midIndex + len(overlay):]
 
-            if self.visible:
-                self.displayTile.update((left + self.barLeft + bar + self.barRight + right)[:self.displayTile.cols])
-                self.drawText()
+                if self.visible:
+                    self.displayTile.update((left + self.barLeft + bar + self.barRight + right)[:self.displayTile.cols])
+                    self.drawText()
 
         def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
             """
@@ -1690,7 +1771,8 @@ class TerminalTiler:
                 colors: Dictionary mapping color names to RGB tuples. Unspecified
                     colors are left unchanged. If ``None``, all colors are reset.
             """
-            self.displayTile.setColor(colors=colors)
+            with self.mutate:
+                self.displayTile.setColor(colors=colors)
 
     class Alert:
         """
@@ -3285,7 +3367,7 @@ class TerminalTiler:
         max:int,
         barChar:str,
         x:int, y:int, width:int,
-        visible:bool=True,
+        visible:bool=False,
         colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None,
         borderStyle:int=None, borderChar:str=None,
         borderFG:tuple[int, int, int]=None, borderBG:tuple[int, int, int]=None,
