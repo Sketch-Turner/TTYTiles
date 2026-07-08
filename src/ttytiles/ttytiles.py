@@ -1182,8 +1182,6 @@ class TerminalTiler:
             """
             with self.mutate:
                 self.visible = True
-                # hide cursor
-                self.write("\033[?25l".encode())
                 self.drawBorder()
                 self.drawPrompt()
                 cX, cY = self.cursorX, self.cursorY
@@ -1194,8 +1192,6 @@ class TerminalTiler:
                 self.cursorX = cX
                 self.cursorY = cY
                 self.write(f"\033[{self.cursorY};{self.cursorX}H".encode())
-                # show cursor
-                self.write("\033[?25h".encode())
 
         def hide(self):
             """
@@ -3781,6 +3777,7 @@ class TerminalTiler:
                     self.wait_con.notify_all()
 
             elif key == TerminalTiler.Keyboard.KEY_TAB:
+                self._write("\033[?25l".encode()) # hide cursor
                 # clear old focus
                 if 0 <= self.focusedIndex and self.focusedIndex < len(self.tiles):
                     self.tiles[self.focusedIndex].focused = False
@@ -3799,7 +3796,11 @@ class TerminalTiler:
                     self.tiles[self.focusedIndex].show()
                 else:
                     self.focusedIndex = -1
-                    self.hideCursor()
+
+                # show cursor if focused element is inputTile
+                if self.focusedIndex != -1:
+                    if isinstance(self.tiles[self.focusedIndex], TerminalTiler.InputTile):
+                        self._write("\033[?25h".encode()) # hide cursor
 
             else:
                 # send to element
@@ -3819,18 +3820,6 @@ class TerminalTiler:
         Clears terminal screen.
         """
         self._write("\x1b[2J".encode())
-
-    def hideCursor(self):
-        """
-        Hides cursor.
-        """
-        self._write("\033[?25l".encode())
-
-    def showCursor(self):
-        """
-        Shows cursor.
-        """
-        self._write("\033[?25h".encode())
 
     def _write(self, text:bytes, fg_color:tuple[int, int, int]=None, bg_color:tuple[int, int, int]=None):
         """
