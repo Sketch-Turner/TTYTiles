@@ -1157,7 +1157,7 @@ class TerminalTiler:
             self.setPrompt(prompt)
             self.cursorX = self.px
             self.cursorY = self.py
-            self.bufferMax = (self.rows - len(self.prompt)) * self.cols + (self.cols - (self.px - self.tx)) # max num of chars for input
+            self.bufferMax = (self.rows - max(1, len(self.prompt))) * self.cols + (self.cols - (self.px - self.tx)) # max num of chars for input
 
             self.buffer = []
             self.input = queue.Queue()
@@ -1192,7 +1192,8 @@ class TerminalTiler:
 
                 self.prompt = self.prompt[:self.rows]
                 self.py = self.ty + max(len(self.prompt) - 1, 0)
-                self.px = self.tx + len(self.prompt[-1]) - promptBuffer
+                self.px = self.tx - promptBuffer
+                self.px += len(self.prompt[-1]) if len(self.prompt) > 0 else 0
 
         def show(self):
             """
