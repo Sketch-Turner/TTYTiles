@@ -407,8 +407,16 @@ class TerminalTiler:
                 self.arrowLeft = charset[16]
                 self.arrowRight = charset[17]
 
-            def canMerge(self, other)->bool:
-                """TODO"""
+            def canMerge(self, other:"TerminalTiler.Border.Charset")->bool:
+                """
+                Determines whether this border character set can be merged with another.
+
+                Args:
+                    other (Border.CharSet): The character set to compare against.
+
+                Returns:
+                    bool: ``True`` if the two character sets can be merged safely, otherwise ``False``.
+                """
                 return (
                     self.junctionAll == other.junctionAll and
                     self.junctionHN == other.junctionHN and
@@ -1621,6 +1629,7 @@ class TerminalTiler:
             self.width = width
             self.height = height
             self.canFocus = False
+            self.focused = False
             self.visible = visible
             self.displayTile = TerminalTiler.DisplayTile(
                 write_func=write_func,
@@ -3823,6 +3832,17 @@ class TerminalTiler:
         return overlaps
 
     def _getIntersectionCoords(self, a, b)->list[tuple[int, int]]:
+        """
+        Returns all border intersection points between two tiles.
+
+        Args:
+            a: Top element.
+            b: Bottom element.
+
+        Returns:
+            list[tuple[int, int]]: A list of unique `(x, y)` coordinates where the
+            borders of the two rectangles intersect.
+        """
         ax1, ay1 = a.x, a.y
         ax2, ay2 = a.x + a.width - 1, a.y + a.height - 1
 
@@ -3848,6 +3868,21 @@ class TerminalTiler:
         return list(points)
 
     def _getJunctionChar(self, a, b, ix, iy) -> str:
+        """
+        Determines the box-drawing character to render at the intersection of two
+        tile borders.
+
+        Args:
+            a: Foreground tile.
+            b: Background tile.
+            ix (int): X-coordinate of the border intersection.
+            iy (int): Y-coordinate of the border intersection.
+
+        Returns:
+            str: The box-drawing character representing the visible border
+            connections at the intersection, or ``None`` if the resulting
+            combination does not correspond to a supported junction.
+        """
         ax1 = a.x
         ay1 = a.y
         ax2 = a.x + a.width - 1
@@ -3860,56 +3895,66 @@ class TerminalTiler:
 
         charset = a.border.charset
 
-        # determine if point is a corner or edge for each rectangle
-        a_corner = (ix in (ax1, ax2)) and (iy in (ay1, ay2))
-        a_vertical = (ix in (ax1, ax2)) and not a_corner
-        a_horizontal = (iy in (ay1, ay2)) and not a_corner
+        # A border
+        a_up    = ix in (ax1, ax2) and iy > ay1
+        a_down  = ix in (ax1, ax2) and iy < ay2
+        a_left  = iy in (ay1, ay2) and ix > ax1
+        a_right = iy in (ay1, ay2) and ix < ax2
 
-        b_corner = (ix in (bx1, bx2)) and (iy in (by1, by2))
-        b_vertical = (ix in (bx1, bx2)) and not b_corner
-        b_horizontal = (iy in (by1, by2)) and not b_corner
+        # B border
+        b_up    = ix in (bx1, bx2) and iy > by1
+        b_down  = ix in (bx1, bx2) and iy < by2
+        b_left  = iy in (by1, by2) and ix > bx1
+        b_right = iy in (by1, by2) and ix < bx2
 
-        # corner-to-corner
-        if a_corner and b_corner:
-            if ay1 == by1 and ay1 == iy:
-                return charset.junctionHS
-            elif ay2 == by2 and ay2 == iy:
-                return charset.junctionHN
-            elif ax1 == bx1 and ax1 == ix:
-                return charset.junctionVE
-            elif ax2 == bx2 and ax2 == ix:
-                return charset.junctionVW
-            else:
-                return charset.junctionAll
+        # A is above B
+        if ay2 <= by2 and (iy < ay1 or iy == ay2):
+            b_up &= not (a_left or a_right)
 
-        # A edge over B corner
-        # A continues, B terminates
-        if (a_vertical or a_horizontal) and b_corner:
-            if a_vertical:
-                return charset.junctionVE if ix != ax1 else charset.junctionVW
-            else:
-                return charset.junctionHS if iy != ay1 else charset.junctionHN
+        # A is below B
+        if ay1 >= by1 and (iy > ay2 or iy == ay1):
+            b_down &= not (a_left or a_right)
 
-        # A corner over B edge
-        # B continues, A terminates
-        if a_corner and (b_vertical or b_horizontal):
-            if b_vertical:
-                return charset.junctionVE if ix != bx1 else charset.junctionVW
-            else:
-                return charset.junctionHS if iy != by1 else charset.junctionHN
+        # A is left of B
+        if ax2 <= bx2 and (ix < ax1 or ix == ax2):
+            b_left &= not (a_up or a_down)
 
-        # edge-to-edge
-        # A is drawn over B, so A owns the junction
-        if a_vertical and b_horizontal:
-            return charset.junctionVE if ix != ax1 else charset.junctionVW
+        # A is right of B
+        if ax1 >= bx1 and (ix > ax2 or ix == ax1):
+            b_right &= not (a_up or a_down)
 
-        if a_horizontal and b_vertical:
-            return charset.junctionHS if iy != ay1 else charset.junctionHN
+        match (a_up or b_up, a_down or b_down, a_left or b_left, a_right or b_right):
+            case (False, False, True,  True):
+                char = charset.lineH
+            case (True,  True,  False, False):
+                char = charset.lineV
+            case (True,  True,  False, True):
+                char = charset.junctionVE
+            case (True,  True,  True,  False):
+                char = charset.junctionVW
+            case (False, True,  True,  True):
+                char = charset.junctionHS
+            case (True,  False, True,  True):
+                char = charset.junctionHN
+            case (True,  True,  True,  True):
+                char = charset.junctionAll
+            case _:
+                char = None  # invalid
 
-        return None
+        return char
 
     def _mergeBorders(self, tile):
-        """TODO"""
+        """
+        Merges compatible borders between a tile and any visible intersecting tiles.
+
+        The supplied tile is treated as the foreground tile. For each visible
+        intersecting tile, compatible border styles and matching border colors are
+        required before any merge is attempted. Every border intersection is then
+        located and replaced with the appropriate border junction character.
+
+        Args:
+            tile: The foreground element whose border is being merged.
+        """
         if isinstance(tile, (TerminalTiler.DisplayTile, TerminalTiler.InputTile)):
             a = tile
         else:
@@ -3942,6 +3987,7 @@ class TerminalTiler:
                             for p in coords:
                                 char = self._getJunctionChar(a, b, p[0], p[1])
                                 if char:
+                                    # print([hex(ord(c)) for c in char])
                                     self._write(f"\x1b[{p[1]};{p[0]}H{char}".encode(), a_fg, a_bg)
 
 
