@@ -407,6 +407,18 @@ class TerminalTiler:
                 self.arrowLeft = charset[16]
                 self.arrowRight = charset[17]
 
+            def canMerge(self, other)->bool:
+                """TODO"""
+                return (
+                    self.junctionAll == other.junctionAll and
+                    self.junctionHN == other.junctionHN and
+                    self.junctionHS == other.junctionHS and
+                    self.junctionVE == other.junctionVE and
+                    self.junctionVW == other.junctionVW and
+                    self.lineH == other.lineH and
+                    self.lineV == other.lineV
+                )
+
         NO_BORDER = 0
         CUSTOM = 1
         SINGLE_BOX = 2
@@ -559,7 +571,7 @@ class TerminalTiler:
         A terminal UI region that renders a bordered rectangular tile
         with an optional header and scrollable/wrappable text buffer.
         """
-        def __init__(self, write_func,
+        def __init__(self, write_func, merge_func,
             x:int, y:int, width:int, height:int,
             visible:bool, canFocus:bool,
             textWrap:int, textJust:int, sizeMode:int,
@@ -574,6 +586,7 @@ class TerminalTiler:
 
             Args:
                 write_func: Function used to write text to the terminal.
+                merge_func: Function used to merge borders.
                 x (int): Tile origin column (1-based).
                 y (int): Tile origin row (1-based).
                 width (int): Tile width in characters.
@@ -604,6 +617,7 @@ class TerminalTiler:
             self.border = border
             self.header = header
             self.write = write_func
+            self.mergeBorder = merge_func
 
             # colors
             self.colorFG = colorFG
@@ -696,6 +710,9 @@ class TerminalTiler:
                     if self.header.rows > 0:
                         self.write(f"\x1b[{self.y + self.header.rows + 1};{self.x}H{self.border.getMiddle(self.width, self.focused)}".encode(), color_fg, color_bg)
                     self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width, self.focused)}".encode(), color_fg, color_bg)
+
+                    if self.mergeBorder:
+                        self.mergeBorder(self)
 
                     if self.sizeMode == TerminalTiler.Style.Size.SCROLLING:
                         self.drawScrollbarBorder()
@@ -1064,7 +1081,7 @@ class TerminalTiler:
         """
         A fixed-size terminal input tile supporting interactive text editing.
         """
-        def __init__(self, write_func, exit_event:threading.Event,
+        def __init__(self, write_func, merge_func, exit_event:threading.Event,
             x:int, y:int, width:int, height:int,
             visible:bool,
             inputFG:tuple[int, int, int], inputBG:tuple[int, int, int], inputFG_F:tuple[int, int, int], inputBG_F:tuple[int, int, int],
@@ -1079,8 +1096,8 @@ class TerminalTiler:
 
             Args:
                 write_func: Function used to write text to the terminal.
-                exit_event (threading.Event): Event used to signal application
-                    shutdown.
+                merge_func: Function used to merge borders.
+                exit_event (threading.Event): Event used to signal application shutdown.
                 x (int): Input field origin column (1-based).
                 y (int): Input field origin row (1-based).
                 width (int): Input field width in characters.
@@ -1104,6 +1121,7 @@ class TerminalTiler:
             self.mutate = threading.RLock()
             self.exit = exit_event
             self.write = write_func
+            self.mergeBorder = merge_func
             self.x = x #col
             self.y = y #row
             self.width = width 
@@ -1243,6 +1261,9 @@ class TerminalTiler:
 
                     self.write(f"\x1b[{self.y};{self.x}H{self.border.getTop(self.width, self.focused)}".encode(), color_fg, color_bg)
                     self.write(f"\x1b[{self.y + self.height - 1};{self.x}H{self.border.getBottom(self.width, self.focused)}".encode(), color_fg, color_bg)
+
+                    if self.mergeBorder:
+                        self.mergeBorder(self)
 
         def drawInput(self):
             """
@@ -1550,7 +1571,7 @@ class TerminalTiler:
         """
         A terminal UI region that renders a ProgressBar.
         """
-        def __init__(self, write_func,
+        def __init__(self, write_func, merge_func,
             max:int,
             x:int, y:int, width:int, height:int,
             visible:bool,
@@ -1565,6 +1586,7 @@ class TerminalTiler:
 
             Args:
                 write_func: Function used to write text to the terminal.
+                merge_func: Function used to merge borders.
                 max (int): Maximum progress value representing 100% completion.
                 x (int): ProgressBar origin column (1-based).
                 y (int): ProgressBar origin row (1-based).
@@ -1601,6 +1623,7 @@ class TerminalTiler:
             self.visible = visible
             self.displayTile = TerminalTiler.DisplayTile(
                 write_func=write_func,
+                merge_func=merge_func,
                 x=x,
                 y=y,
                 width=width,
@@ -1849,6 +1872,7 @@ class TerminalTiler:
             self.visible = False
             self.displayTile = TerminalTiler.DisplayTile(
                 write_func=write_func,
+                merge_func=None,
                 x=x,
                 y=y,
                 width=width,
@@ -2003,6 +2027,7 @@ class TerminalTiler:
 
                 Args:
                     write_func: Function used to write text to the terminal.
+
                     value: Value returned when the button is activated.
                     hotkey (str): Keyboard key that activates the button.
                     width (int): Button width in characters.
@@ -2026,6 +2051,7 @@ class TerminalTiler:
                 self.value = value
                 self.displayTile = TerminalTiler.DisplayTile(
                     write_func=write_func,
+                    merge_func=None,
                     x=0, # set at render
                     y=0, # set at render
                     width=width,
@@ -2133,6 +2159,7 @@ class TerminalTiler:
             self.value = None
             self.displayTile = TerminalTiler.DisplayTile(
                 write_func=write_func,
+                merge_func=None,
                 x=x,
                 y=y,
                 width=width,
@@ -2547,6 +2574,7 @@ class TerminalTiler:
                 self.textJust = textJust
                 self.displayTile = TerminalTiler.DisplayTile(
                     write_func=write_func,
+                    merge_func=None,
                     x=0,
                     y=0,
                     width=0,
@@ -2700,7 +2728,7 @@ class TerminalTiler:
                     for c in self.cells:
                         c.setTextJust(textJust)
 
-        def __init__(self, write_func,
+        def __init__(self, write_func, merge_func,
             x:int, y:int, width:int, height:int,
             visible:bool, canFocus:bool,
             textWrap: int, textJust: int,
@@ -2716,6 +2744,7 @@ class TerminalTiler:
 
             Args:
                 write_func: Function used to write text to the terminal.
+                merge_func: Function used to merge borders.
                 x (int): Table origin column (1-based).
                 y (int): Table origin row (1-based).
                 width (int): Table width in characters.
@@ -2750,6 +2779,7 @@ class TerminalTiler:
             self.focused = False
             self.displayTile = TerminalTiler.DisplayTile(
                 write_func=write_func,
+                merge_func=merge_func,
                 x=x,
                 y=y,
                 width=width,
@@ -3043,6 +3073,8 @@ class TerminalTiler:
                         if i < len(visible_rows) - 1:
                             self.write(f"\x1b[{y - 1};{self.displayTile.x}H{middle_border}".encode(), color_fg, color_bg)
 
+                    self.displayTile.mergeBorder(self)
+
         def show(self):
             """
             Renders the table.
@@ -3307,6 +3339,7 @@ class TerminalTiler:
 
         tile = TerminalTiler.DisplayTile(
             write_func=self._write,
+            merge_func=self._mergeBorders,
             x=x,
             y=y,
             width=width,
@@ -3401,6 +3434,7 @@ class TerminalTiler:
 
         tile = TerminalTiler.InputTile(
             write_func=self._write,
+            merge_func=self._mergeBorders,
             exit_event=self.exit,
             x=x,
             y=y,
@@ -3505,6 +3539,7 @@ class TerminalTiler:
 
         tile = TerminalTiler.ProgressBar(
             write_func=self._write,
+            merge_func=self._mergeBorders,
             max=max,
             x=x,
             y=y,
@@ -3732,6 +3767,7 @@ class TerminalTiler:
 
         tile = TerminalTiler.Table(
             write_func=self._write,
+            merge_func=self._mergeBorders,
             x=x,
             y=y,
             width=width,
@@ -3784,6 +3820,133 @@ class TerminalTiler:
                     overlaps.append(t)
 
         return overlaps
+
+    def _getIntersectionCoords(self, a, b)->list[tuple[int, int]]:
+        ax1, ay1 = a.x, a.y
+        ax2, ay2 = a.x + a.width - 1, a.y + a.height - 1
+
+        bx1, by1 = b.x, b.y
+        bx2, by2 = b.x + b.width - 1, b.y + b.height - 1
+
+        points = set()
+
+        # A vertical edges vs B horizontal edges
+        for x in (ax1, ax2):
+            if bx1 <= x <= bx2:
+                for y in (by1, by2):
+                    if ay1 <= y <= ay2:
+                        points.add((x, y))
+
+        # B vertical edges vs A horizontal edges
+        for x in (bx1, bx2):
+            if ax1 <= x <= ax2:
+                for y in (ay1, ay2):
+                    if by1 <= y <= by2:
+                        points.add((x, y))
+
+        return list(points)
+
+    def _getJunctionChar(self, a, b, ix, iy) -> str:
+        ax1 = a.x
+        ay1 = a.y
+        ax2 = a.x + a.width - 1
+        ay2 = a.y + a.height - 1
+
+        bx1 = b.x
+        by1 = b.y
+        bx2 = b.x + b.width - 1
+        by2 = b.y + b.height - 1
+
+        charset = a.border.charset
+
+        # determine if point is a corner or edge for each rectangle
+        a_corner = (ix in (ax1, ax2)) and (iy in (ay1, ay2))
+        a_vertical = (ix in (ax1, ax2)) and not a_corner
+        a_horizontal = (iy in (ay1, ay2)) and not a_corner
+
+        b_corner = (ix in (bx1, bx2)) and (iy in (by1, by2))
+        b_vertical = (ix in (bx1, bx2)) and not b_corner
+        b_horizontal = (iy in (by1, by2)) and not b_corner
+
+        # corner-to-corner
+        if a_corner and b_corner:
+            if ay1 == by1 and ay1 == iy:
+                return charset.junctionHS
+            elif ay2 == by2 and ay2 == iy:
+                return charset.junctionHN
+            elif ax1 == bx1 and ax1 == ix:
+                return charset.junctionVE
+            elif ax2 == bx2 and ax2 == ix:
+                return charset.junctionVW
+            else:
+                return charset.junctionAll
+
+        # A edge over B corner
+        # A continues, B terminates
+        if (a_vertical or a_horizontal) and b_corner:
+            if a_vertical:
+                return charset.junctionVE if ix != ax1 else charset.junctionVW
+            else:
+                return charset.junctionHS if iy != ay1 else charset.junctionHN
+
+        # A corner over B edge
+        # B continues, A terminates
+        if a_corner and (b_vertical or b_horizontal):
+            if b_vertical:
+                return charset.junctionVE if ix != bx1 else charset.junctionVW
+            else:
+                return charset.junctionHS if iy != by1 else charset.junctionHN
+
+        # edge-to-edge
+        # A is drawn over B, so A owns the junction
+        if a_vertical and b_horizontal:
+            return charset.junctionVE if ix != ax1 else charset.junctionVW
+
+        if a_horizontal and b_vertical:
+            return charset.junctionHS if iy != ay1 else charset.junctionHN
+
+        return None
+
+    def _mergeBorders(self, tile):
+        """TODO"""
+        if isinstance(tile, (TerminalTiler.DisplayTile, TerminalTiler.InputTile)):
+            a = tile
+        else:
+            a = tile.displayTile
+
+        # check if border
+        if a.border.style != TerminalTiler.Border.NO_BORDER:
+            a_fg = a.border.colorFG_F if tile.focused else a.border.colorFG
+            a_bg = a.border.colorBG_F if tile.focused else a.border.colorBG
+            a_charset = a.border.charset_F if tile.focused else a.border.charset
+
+            tiles = self._getIntersectingElements(tile)
+            for t in tiles:
+                # check if visible
+                if t.visible:
+                    if isinstance(t, (TerminalTiler.DisplayTile, TerminalTiler.InputTile)):
+                        b = t
+                    else:
+                        b = t.displayTile
+
+                    b_charset = b.border.charset_F if t.focused else b.border.charset
+                    # check if border style matches
+                    if a_charset.canMerge(b_charset):
+                        b_fg = b.border.colorFG_F if t.focused else b.border.colorFG
+                        b_bg = b.border.colorBG_F if t.focused else b.border.colorBG
+                        # check if color matches
+                        if a_fg == b_fg and a_bg == b_bg:
+                            coords = self._getIntersectionCoords(a, b)
+
+                            for p in coords:
+                                char = self._getJunctionChar(a, b, p[0], p[1])
+                                if char:
+                                    self._write(f"\x1b[{p[1]};{p[0]}H{char}".encode(), a_fg, a_bg)
+
+
+
+        # if isinstance(tile, (TerminalTiler.DisplayTile, TerminalTiler.Table)):
+        #     # header
 
     def _handleInput(self, key:str):
         """
