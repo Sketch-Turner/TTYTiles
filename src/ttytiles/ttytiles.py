@@ -1687,33 +1687,77 @@ class TerminalTiler:
                 self.visible = False
                 self.displayTile.hide()
 
-        def formatTime(self, seconds):
+        def formatTime(self, seconds:float, fmt:str)->str:
             """
             Format a duration into a compact, human-readable string.
 
-            Durations less than 10 seconds are displayed with millisecond precision
-            as seconds with three decimal places (e.g. "5.123"). Longer durations
-            are displayed as "M:SS" or "H:MM:SS" as appropriate.
+            Supported tokens:
+                H   - Hours
+                HH  - Zero-padded hours
+                M   - Minutes
+                MM  - Zero-padded minutes
+                S   - Seconds
+                SS  - Zero-padded seconds
+                m   - Tenths
+                mm  - Hundredths
+                mmm - Milliseconds
 
             Args:
-                seconds (float):
-                    Duration in seconds.
+                seconds (float): Duration in seconds.
+                fmt (str): Format.
 
             Returns:
                 str:
                     The formatted duration string.
             """
-            if seconds < 10:
-                return f"{seconds:.3f}"
+            total_ms = int(round(seconds * 1000))
 
-            seconds = int(seconds)
+            h, rem = divmod(total_ms, 3_600_000)
+            m, rem = divmod(rem, 60_000)
+            s, ms = divmod(rem, 1000)
 
-            h, rem = divmod(seconds, 3600)
-            m, s = divmod(rem, 60)
+            replacements = {
+                "HH": f"{h:02}",
+                "H": str(h),
+                "MM": f"{m:02}",
+                "M": str(m),
+                "SS": f"{s:02}",
+                "S": str(s),
+                "mmm": f"{ms:03}",
+                "mm": f"{ms // 10:02}",
+                "m": str(ms // 100),
+            }
 
-            if h:
-                return f"{h}:{m:02}:{s:02}"
-            return f"{m}:{s:02}"
+            # Replace longest tokens first
+            for token in sorted(replacements, key=len, reverse=True):
+                fmt = fmt.replace(token, replacements[token])
+
+            return fmt
+
+        def formatText(self, text:str, mapping:dict)->str:
+            """
+            Formating helper.
+
+            Args:
+                text (str):The text template containing placeholder fields.
+                mapping (dict): Dictionary mapping placeholder names to their corresponding values.
+
+            Returns:
+                str: The formatted text.
+            """
+            for key, value in mapping.items():
+                while (start := text.find(f"{{{key}")) != -1:
+                    end = text.find("}", start)
+                    _, _, fmt = text[start + 1:end].partition(":")
+
+                    if key in ("AVG_TIME", "ELAPSED", "REMAINING"):
+                        replacement = self.formatTime(value, fmt or "MM:SS")
+                    else:
+                        replacement = format(value, fmt)
+
+                    text = text[:start] + replacement + text[end + 1:]
+
+            return text
 
         def update(self, increment:int=1):
             """
@@ -1735,9 +1779,25 @@ class TerminalTiler:
                 {MAX}       - Maximum progress value.
                 {PERCENT}   - Progress percentage (0-100).
                 {RATIO}     - Progress ratio (0.0-1.0).
-                {AVERAGE}   - Average time per increment.
+                {AVG_ITTS}  - Average iterations per second.
+                {AVG_TIME}  - Average time per iteration.
                 {ELAPSED}   - Time elapsed since start.
                 {REMAINING} - Estimated time remaining.
+
+            Time placeholders ({AVG_TIME}, {ELAPSED}, and {REMAINING}) support
+            custom time format specifiers:
+
+                H    - Hours.
+                HH   - Zero-padded hours.
+                M    - Minutes.
+                MM   - Zero-padded minutes.
+                S    - Seconds.
+                SS   - Zero-padded seconds.
+                m    - Tenths.
+                mm   - Hundredths.
+                mmm  - Milliseconds.
+
+            Default time format is MM:SS.
 
             Args:
                 increment (int):
@@ -1762,33 +1822,19 @@ class TerminalTiler:
                     self.averageTime = ((1 - self.alpha) * self.averageTime + self.alpha * instant)
                 remaining = (self.max - self.value) * self.averageTime
                 # get formatted text
-                left = self.textLeft.format(
-                    VALUE=self.value,
-                    MAX=self.max,
-                    PERCENT=100*self.value/self.max,
-                    RATIO=self.value/self.max,
-                    AVERAGE=self.formatTime(self.averageTime),
-                    ELAPSED=self.formatTime(elapsed),
-                    REMAINING=self.formatTime(remaining)
-                )
-                right = self.textRight.format(
-                    VALUE=self.value,
-                    MAX=self.max,
-                    PERCENT=100*self.value/self.max,
-                    RATIO=self.value/self.max,
-                    AVERAGE=self.formatTime(self.averageTime),
-                    ELAPSED=self.formatTime(elapsed),
-                    REMAINING=self.formatTime(remaining)
-                )
-                overlay = self.textOverlay.format(
-                    VALUE=self.value,
-                    MAX=self.max,
-                    PERCENT=100*self.value/self.max,
-                    RATIO=self.value/self.max,
-                    AVERAGE=self.formatTime(self.averageTime),
-                    ELAPSED=self.formatTime(elapsed),
-                    REMAINING=self.formatTime(remaining)
-                )
+                mapping = {
+                    "VALUE": self.value,
+                    "MAX": self.max,
+                    "PERCENT": 100 * self.value / self.max,
+                    "RATIO": self.value / self.max,
+                    "AVG_TIME": self.averageTime,
+                    "AVG_ITTS": 1 / self.averageTime,
+                    "ELAPSED": elapsed,
+                    "REMAINING": remaining,
+                }
+                left = self.formatText(self.textLeft, mapping)
+                right = self.formatText(self.textRight, mapping)
+                overlay = self.formatText(self.textOverlay, mapping)
                 # build bar 
                 barWidth = max(0, self.displayTile.cols - (len(left) + len(right)))
                 barFilled = int(barWidth * self.value / self.max)
@@ -3498,15 +3544,31 @@ class TerminalTiler:
                 textOverlay - Overlay text is centered within the bar and replaces the underlying bar characters.
                 textRight   - Rendered on right side of ProgressBar.
 
-            These sections may be formatted using the following placeholders:
+        These sections may be formatted using the following placeholders:
 
-                {VALUE}     - Current progress value.
-                {MAX}       - Maximum progress value.
-                {PERCENT}   - Progress percentage (0-100).
-                {RATIO}     - Progress ratio (0.0-1.0).
-                {AVERAGE}   - Average time per increment.
-                {ELAPSED}   - Time elapsed since start.
-                {REMAINING} - Estimated time remaining.
+            {VALUE}     - Current progress value.
+            {MAX}       - Maximum progress value.
+            {PERCENT}   - Progress percentage (0-100).
+            {RATIO}     - Progress ratio (0.0-1.0).
+            {AVG_ITTS}  - Average iterations per second.
+            {AVG_TIME}  - Average time per iteration.
+            {ELAPSED}   - Time elapsed since start.
+            {REMAINING} - Estimated time remaining.
+
+        Time placeholders ({AVG_TIME}, {ELAPSED}, and {REMAINING}) support
+        custom time format specifiers:
+
+            H    - Hours.
+            HH   - Zero-padded hours.
+            M    - Minutes.
+            MM   - Zero-padded minutes.
+            S    - Seconds.
+            SS   - Zero-padded seconds.
+            m    - Tenths.
+            mm   - Hundredths.
+            mmm  - Milliseconds.
+
+        Default time format is MM:SS.
 
         Args:
             x (int): ProgressBar origin column (1-based).
