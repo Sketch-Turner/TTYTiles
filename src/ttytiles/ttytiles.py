@@ -642,6 +642,25 @@ class TerminalTiler:
             if self.visible:
                 self.show()
 
+        def getRect(self)->tuple[int, int, int, int]:
+            """
+            Returns the tile's bounding rectangle.
+
+            Returns:
+                tuple[int, int, int, int]: The rectangle as
+                ``(x1, y1, x2, y2)``, where:
+                    - ``x1`` is the left edge.
+                    - ``y1`` is the top edge.
+                    - ``x2`` is the right edge (inclusive).
+                    - ``y2`` is the bottom edge (inclusive).
+            """
+            return (
+                self.x,
+                self.y,
+                self.x + self.width - 1,
+                self.y + self.height - 1
+            )
+
         def resize(self, width:int=None, height:int=None):
             """
             Resize the display tile and recalculate all derived layout values.
@@ -1175,6 +1194,25 @@ class TerminalTiler:
             if self.visible:
                 self.show()
 
+        def getRect(self):
+            """
+            Returns the tile's bounding rectangle.
+
+            Returns:
+                tuple[int, int, int, int]: The rectangle as
+                ``(x1, y1, x2, y2)``, where:
+                    - ``x1`` is the left edge.
+                    - ``y1`` is the top edge.
+                    - ``x2`` is the right edge (inclusive).
+                    - ``y2`` is the bottom edge (inclusive).
+            """
+            return (
+                self.x,
+                self.y,
+                self.x + self.width - 1,
+                self.y + self.height - 1
+            )
+
         def setPrompt(self, prompt: str):
             """
             Formats and stores the prompt into fixed-width terminal rows.
@@ -1654,6 +1692,20 @@ class TerminalTiler:
             if visible:
                 self.show()
 
+        def getRect(self):
+            """
+            Returns the tile's bounding rectangle.
+
+            Returns:
+                tuple[int, int, int, int]: The rectangle as
+                ``(x1, y1, x2, y2)``, where:
+                    - ``x1`` is the left edge.
+                    - ``y1`` is the top edge.
+                    - ``x2`` is the right edge (inclusive).
+                    - ``y2`` is the bottom edge (inclusive).
+            """
+            return self.displayTile.getRect()
+
         def drawBorder(self):
             """
             Render border.
@@ -1946,6 +1998,20 @@ class TerminalTiler:
                 header=TerminalTiler.Header()
             )
 
+        def getRect(self):
+            """
+            Returns the tile's bounding rectangle.
+
+            Returns:
+                tuple[int, int, int, int]: The rectangle as
+                ``(x1, y1, x2, y2)``, where:
+                    - ``x1`` is the left edge.
+                    - ``y1`` is the top edge.
+                    - ``x2`` is the right edge (inclusive).
+                    - ``y2`` is the bottom edge (inclusive).
+            """
+            return self.displayTile.getRect()
+
         def drawBorder(self):
             """
             Render border.
@@ -2232,6 +2298,20 @@ class TerminalTiler:
                 border=border,
                 header=header
             )
+
+        def getRect(self):
+            """
+            Returns the tile's bounding rectangle.
+
+            Returns:
+                tuple[int, int, int, int]: The rectangle as
+                ``(x1, y1, x2, y2)``, where:
+                    - ``x1`` is the left edge.
+                    - ``y1`` is the top edge.
+                    - ``x2`` is the right edge (inclusive).
+                    - ``y2`` is the bottom edge (inclusive).
+            """
+            return self.displayTile.getRect()
 
         def getButtonLayoutHeight(self)->int:
             """
@@ -2858,6 +2938,20 @@ class TerminalTiler:
             self.colorBG = colorBG
             self.colorFG_F = colorFG_F
             self.colorBG_F = colorBG_F
+
+        def getRect(self):
+            """
+            Returns the tile's bounding rectangle.
+
+            Returns:
+                tuple[int, int, int, int]: The rectangle as
+                ``(x1, y1, x2, y2)``, where:
+                    - ``x1`` is the left edge.
+                    - ``y1`` is the top edge.
+                    - ``x2`` is the right edge (inclusive).
+                    - ``y2`` is the bottom edge (inclusive).
+            """
+            return self.displayTile.getRect()
 
         def build(self):
             """
@@ -3776,7 +3870,7 @@ class TerminalTiler:
 
     def addTable(self,
         x:int, y:int, width:int, height:int,
-        visible:bool, canFocus:bool,
+        visible:bool=False, canFocus:bool=False,
         textWrap:int=None, textJust:int=None,
         colorFG:tuple[int, int, int]=None, colorBG:tuple[int, int, int]=None, colorFG_F:tuple[int, int, int]=None, colorBG_F:tuple[int, int, int]=None,
         borderStyle:int=None, borderChar:str=None, borderStyleFocused:int=None, borderCharFocused:str=None,
@@ -3893,17 +3987,12 @@ class TerminalTiler:
 
         return overlaps
 
-    def _getEdges(self, rect, header_rows):
+    def _getEdges(self, tile):
         """
-        Returns the border edge segments of a rectangle, including an optional
-        header separator line.
+        Returns the border edge segments of a tile.
 
         Args:
-            rect (tuple[int, int, int, int]): Rectangle bounds as
-                `(x1, y1, x2, y2)`.
-            header_rows (int): Number of header rows inside the rectangle. If
-                greater than zero, a horizontal separator edge is added below the
-                header area.
+            tile: Tile element.
 
         Returns:
             tuple[list[tuple[int, int, int]], list[tuple[int, int, int]]]:
@@ -3911,7 +4000,7 @@ class TerminalTiler:
                     - Vertical edges as `(x, y1, y2)`.
                     - Horizontal edges as `(y, x1, x2)`.
         """
-        x1, y1, x2, y2 = rect
+        x1, y1, x2, y2 = tile.getRect()
 
         vertical = [
             (x1, y1, y2),
@@ -3924,21 +4013,35 @@ class TerminalTiler:
         ]
 
         # header separator line
+        if isinstance(tile, (TerminalTiler.DisplayTile, TerminalTiler.InputTile)):
+            t = tile
+        else:
+            t = tile.displayTile
+        header_rows = t.header.rows if isinstance(t, TerminalTiler.DisplayTile) else 0
         if header_rows > 0:
             horizontal.append((y1 + header_rows + 1, x1, x2))
 
+        # table cell separators
+        if isinstance(tile, TerminalTiler.Table):
+            x = t.x
+            y = t.y + ((header_rows + 1) if header_rows > 0 else 0)
+            for c in tile.col_list:
+                x += c.size + 1
+                vertical.append((x, y1, y2))
+            for r in tile.row_list:
+                y += r.size + 1
+                horizontal.append((y, x1, x2))
+
         return vertical, horizontal
 
-    def _getIntersectionCoords(self, a:tuple[int, int, int, int], b:tuple[int, int, int, int], a_header:int, b_header:int)->list[tuple[int, int]]:
+    def _getIntersectionCoords(self, a, b)->list[tuple[int, int]]:
         """
         Returns all border intersection points between two tiles, including
         header separator intersections.
 
         Args:
-            a: Foreground tile rectangle `(x1, y1, x2, y2)`.
-            b: Background tile rectangle `(x1, y1, x2, y2)`.
-            a_header: Number of header rows in the foreground tile.
-            b_header: Number of header rows in the background tile.
+            a: Foreground tile.
+            b: Background tile.
 
         Returns:
             list[tuple[int, int]]: Unique `(x, y)` coordinates where visible
@@ -3946,25 +4049,27 @@ class TerminalTiler:
         """
         points = set()
 
-        a_vertical, a_horizontal = self._getEdges(a, a_header)
-        b_vertical, b_horizontal = self._getEdges(b, b_header)
+        a_vertical, a_horizontal = self._getEdges(a)
+        b_vertical, b_horizontal = self._getEdges(b)
+
+        rax1, ray1, rax2, ray2 = a.getRect()
 
         # vertical vs horizontal
         for x, ay1, ay2 in a_vertical:
             for y, bx1, bx2 in b_horizontal:
                 if bx1 <= x <= bx2 and ay1 <= y <= ay2:
-                    if x in (a[0], a[2]) or y in (a[1], a[3]):
+                    if x in (rax1, rax2) or y in (ray1, ray2):
                         points.add((x, y))
 
         for x, by1, by2 in b_vertical:
             for y, ax1, ax2 in a_horizontal:
                 if ax1 <= x <= ax2 and by1 <= y <= by2:
-                    if x in (a[0], a[2]) or y in (a[1], a[3]):
+                    if x in (rax1, rax2) or y in (ray1, ray2):
                         points.add((x, y))
 
         return list(points)
 
-    def _getJunctionChar(self, a:tuple[int, int, int, int], b:tuple[int, int, int, int], a_header:int, b_header:int, p:tuple[int, int], charset:Border.Charset) -> str:
+    def _getJunctionChar(self, a, b, p:tuple[int, int], charset:Border.Charset) -> str:
         """
         Determines the box-drawing character to render at the intersection of two
         tile borders.
@@ -3974,14 +4079,8 @@ class TerminalTiler:
         border segments from `a`.
 
         Args:
-            a (tuple[int, int, int, int]): Foreground tile rectangle as
-                `(x1, y1, x2, y2)`.
-            b (tuple[int, int, int, int]): Background tile rectangle as
-                `(x1, y1, x2, y2)`.
-            a_header (int): Number of header rows in the foreground tile. Used to
-                include the header separator as an additional horizontal border.
-            b_header (int): Number of header rows in the background tile. Used to
-                include the header separator as an additional horizontal border.
+            a: Foreground tile.
+            b: Background tile.
             p (tuple[int, int]): The `(x, y)` coordinate of the border intersection.
             charset (Border.Charset): Border character set used to select the
                 appropriate junction glyph.
@@ -3991,12 +4090,13 @@ class TerminalTiler:
             connections at the intersection, or ``None`` if the resulting
             combination does not correspond to a supported junction.
         """
-        ax1, ay1, ax2, ay2 = a
-        bx1, by1, bx2, by2 = b
+        ax1, ay1, ax2, ay2 = a.getRect()
+        bx1, by1, bx2, by2 = b.getRect()
         ix, iy = p
 
-        a_vertical, a_horizontal = self._getEdges(a, a_header)
-        b_vertical, b_horizontal = self._getEdges(b, b_header)
+        a_vertical, a_horizontal = self._getEdges(a)
+        b_vertical, b_horizontal = self._getEdges(b)
+        # raise(Exception(f"{a_vertical, a_horizontal, b_vertical, b_horizontal}"))
 
         a_up = a_down = a_left = a_right = False
         b_up = b_down = b_left = b_right = False
@@ -4074,9 +4174,6 @@ class TerminalTiler:
         else:
             a = tile.displayTile
 
-        a_rect = (a.x, a.y, a.x + a.width - 1, a.y + a.height - 1)
-        a_header = a.header.rows if isinstance(a, TerminalTiler.DisplayTile) else 0
-
         # check if border
         if a.border.style != TerminalTiler.Border.NO_BORDER:
             a_fg = a.border.colorFG_F if tile.focused else a.border.colorFG
@@ -4099,11 +4196,9 @@ class TerminalTiler:
                         b_bg = b.border.colorBG_F if t.focused else b.border.colorBG
                         # check if color matches
                         if a_fg == b_fg and a_bg == b_bg:
-                            b_rect = (b.x, b.y, b.x + b.width - 1, b.y + b.height - 1)
-                            b_header = a.header.rows if isinstance(a, TerminalTiler.DisplayTile) else 0
-                            coords = self._getIntersectionCoords(a_rect, b_rect, a_header, b_header)
+                            coords = self._getIntersectionCoords(tile, t)
                             for p in coords:
-                                char = self._getJunctionChar(a_rect, b_rect, a_header, b_header, p, a_charset)
+                                char = self._getJunctionChar(tile, t, p, a_charset)
                                 if char:
                                     self._write(f"\x1b[{p[1]};{p[0]}H{char}".encode(), a_fg, a_bg)
 
