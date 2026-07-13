@@ -668,7 +668,19 @@ class TerminalTiler:
             """
             Clears the text buffer.
             """
-            self.text.clear()
+            with self.mutate:
+                self.text.clear()
+                if self.visible:
+                    self.show()
+
+        def clearHeader(self):
+            """
+            Clears the header text buffer.
+            """
+            with self.mutate:
+                self.header.text.clear()
+                if self.visible:
+                    self.show()
 
         def resize(self, width:int=None, height:int=None):
             """
