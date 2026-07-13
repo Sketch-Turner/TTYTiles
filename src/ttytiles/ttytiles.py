@@ -541,12 +541,14 @@ class TerminalTiler:
             Text wrapping.
 
             STYLES:
-            - WRAP
             - NOWRAP
+            - WRAP
+            - WORD_WRAP
             """
             NOWRAP = 0
             WRAP = 1
-            STYLES = {NOWRAP, WRAP}
+            WORD_WRAP = 2
+            STYLES = {NOWRAP, WRAP, WORD_WRAP}
 
         class Justify:
             """
@@ -897,6 +899,26 @@ class TerminalTiler:
                             output = line[i:i+self.cols]
                             self.text.append(self.justify(output, self.textJust, self.cols))
                             self.tIndex += len(self.text) - 1
+                    elif self.textWrap == TerminalTiler.Style.Wrap.WORD_WRAP:
+                        pos = 0
+                        while pos < len(line):
+                            end = min(pos + self.cols, len(line))
+
+                            # wrap on whitespace.
+                            if end < len(line):
+                                split = line.rfind(" ", pos, end)
+                                if split > pos:
+                                    output = line[pos:split]
+                                    pos = split + 1
+                                else:
+                                    output = line[pos:end]
+                                    pos = end
+                            else:
+                                output = line[pos:end]
+                                pos = end
+
+                            self.text.append(self.justify(output, self.textJust, self.cols))
+                            self.tIndex += len(self.text) - 1
 
                 if self.visible:
                     # write text
@@ -924,6 +946,25 @@ class TerminalTiler:
                     elif self.textWrap == TerminalTiler.Style.Wrap.WRAP:
                         for i in range(0, len(line), cols):
                             output = line[i:i+cols]
+                            self.header.text.append(self.justify(output, self.header.textJust, cols))
+                    elif self.textWrap == TerminalTiler.Style.Wrap.WORD_WRAP:
+                        pos = 0
+                        while pos < len(line):
+                            end = min(pos + cols, len(line))
+
+                            # wrap on whitespace.
+                            if end < len(line):
+                                split = line.rfind(" ", pos, end)
+                                if split > pos:
+                                    output = line[pos:split]
+                                    pos = split + 1
+                                else:
+                                    output = line[pos:end]
+                                    pos = end
+                            else:
+                                output = line[pos:end]
+                                pos = end
+
                             self.header.text.append(self.justify(output, self.header.textJust, cols))
 
                 if self.visible:
