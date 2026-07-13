@@ -4300,7 +4300,7 @@ class TerminalTiler:
                 # show cursor if focused element is inputTile
                 if self.focusedIndex != -1:
                     if isinstance(self.tiles[self.focusedIndex], TerminalTiler.InputTile):
-                        self._write("\033[?25h".encode()) # hide cursor
+                        self._write("\033[?25h".encode()) # show cursor
 
             else:
                 # send to element
@@ -4369,6 +4369,42 @@ class TerminalTiler:
             # notify waiting threads
             with self.wait_con:
                 self.wait_con.notify_all()
+
+    def focus(self, element):
+        """
+        Sets focus to provided element. Element must be valid and able to be focused.
+
+        Args:
+            element: Element to focus. Must be OutputTile, InputTile, or Table.
+        """
+        if isinstance(element, (TerminalTiler.DisplayTile, TerminalTiler.InputTile, TerminalTiler.Table)):
+            if element.canFocus:
+                index = None
+                for i, t in enumerate(self.tiles):
+                    if t is element:
+                        index = i
+                        break
+                if not index is None:
+                    self._write("\033[?25l".encode()) # hide cursor
+                    # clear old focus
+                    if 0 <= self.focusedIndex and self.focusedIndex < len(self.tiles):
+                        self.tiles[self.focusedIndex].focused = False
+                        self.tiles[self.focusedIndex].show()
+
+                    # set index
+                    self.focusedIndex = index
+
+                    # apply or reset
+                    if self.focusedIndex < len(self.tiles):
+                        self.tiles[self.focusedIndex].focused = True
+                        self.tiles[self.focusedIndex].show()
+                    else:
+                        self.focusedIndex = -1
+
+                    # show cursor if focused element is inputTile
+                    if self.focusedIndex != -1:
+                        if isinstance(self.tiles[self.focusedIndex], TerminalTiler.InputTile):
+                            self._write("\033[?25h".encode()) # show cursor
 
     def waitForKey(self, key:str):
         """
