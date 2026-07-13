@@ -705,9 +705,10 @@ class TerminalTiler:
                     self.cols -= 2
 
                 if self.sizeMode == TerminalTiler.Style.Size.FIXED:
-                    self.text = deque(maxlen=self.rows)
+                    self.text = deque(self.text, maxlen=self.rows)
                 else:
-                    self.text = []
+                    self.text = list(self.text)
+
                 self.tIndex = 0
 
         def drawBorder(self):
