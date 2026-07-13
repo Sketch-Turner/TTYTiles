@@ -661,6 +661,12 @@ class TerminalTiler:
                 self.y + self.height - 1
             )
 
+        def clear(self):
+            """
+            Clears the text buffer.
+            """
+            self.text.clear()
+
         def resize(self, width:int=None, height:int=None):
             """
             Resize the display tile and recalculate all derived layout values.
