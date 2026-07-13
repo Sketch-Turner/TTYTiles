@@ -4280,6 +4280,7 @@ class TerminalTiler:
         # if alert is not active, handle input
         elif self.popup.acquire(blocking=False):
             if (key == self.waitKey or self.waitKey == TerminalTiler.Keyboard.KEY_ANY):
+                self.waitKey = None
                 with self.wait_con:
                     self.wait_con.notify_all()
 
