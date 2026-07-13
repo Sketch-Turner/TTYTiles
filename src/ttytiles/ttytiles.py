@@ -1233,26 +1233,12 @@ class TerminalTiler:
             self.promptFG_F = promptFG_F
             self.promptBG_F = promptBG_F
 
-            # text
-            self.rows = self.height
-            self.cols = self.width
-            self.tx = self.x
-            self.ty = self.y
+            # border
             self.border = border
-            if self.border.style != TerminalTiler.Border.NO_BORDER:
-                self.tx += 1
-                self.ty += 1
-                self.rows -= 2
-                self.cols -= 2
 
-            self.prompt = []
-            self.pIndex = 0
-            self.px = self.tx
-            self.py = self.ty
+            # build
+            self.resize()
             self.setPrompt(prompt)
-            self.cursorX = self.px
-            self.cursorY = self.py
-            self.bufferMax = (self.rows - max(1, len(self.prompt))) * self.cols + (self.cols - (self.px - self.tx)) # max num of chars for input
 
             self.buffer = []
             self.input = queue.Queue()
@@ -1261,6 +1247,38 @@ class TerminalTiler:
             self.canFocus = True
             if self.visible:
                 self.show()
+
+        def resize(self, width:int=None, height:int=None):
+            """
+            Resize the display tile and recalculate all derived layout values.
+
+            Updates the tile's dimensions and recomputes the positions and sizes of
+            the text area, header, and borders. The usable text region is adjusted
+            based on the configured border style, header, and size mode.
+            Resets the scroll index to the top.
+
+            Args:
+                width (int, optional):
+                    New width of the tile. If `None`, the `self.width` is used.
+                height (int, optional):
+                    New height of the tile. If `None`, the `self.height` is used.
+            """
+            with self.mutate:
+                if width:
+                    self.width = width
+                if height:
+                    self.height = height
+
+                # text
+                self.rows = self.height
+                self.cols = self.width
+                self.tx = self.x
+                self.ty = self.y
+                if self.border.style != TerminalTiler.Border.NO_BORDER:
+                    self.tx += 1
+                    self.ty += 1
+                    self.rows -= 2
+                    self.cols -= 2
 
         def getRect(self):
             """
@@ -1295,8 +1313,9 @@ class TerminalTiler:
             """
             with self.mutate:
                 self.prompt = []
-                promptBuffer = 0
+                self.pIndex = 0
 
+                promptBuffer = 0
                 prompt = str(prompt).replace('\r\n', '\n').replace('\r', '\n')
                 for line in prompt.split('\n'):
                     for i in range(0, len(line), self.cols):
@@ -1308,6 +1327,10 @@ class TerminalTiler:
                 self.py = self.ty + max(len(self.prompt) - 1, 0)
                 self.px = self.tx - promptBuffer
                 self.px += len(self.prompt[-1]) if len(self.prompt) > 0 else 0
+
+                self.cursorX = self.px
+                self.cursorY = self.py
+                self.bufferMax = (self.rows - max(1, len(self.prompt))) * self.cols + (self.cols - (self.px - self.tx)) # max num of chars for input
 
         def show(self):
             """
