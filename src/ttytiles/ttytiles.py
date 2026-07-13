@@ -634,6 +634,7 @@ class TerminalTiler:
             self.colorBG_F = colorBG_F
 
             # set size of buffers
+            self.text = []
             self.resize()
 
             self.visible = visible
