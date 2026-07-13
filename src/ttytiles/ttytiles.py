@@ -333,6 +333,13 @@ class TerminalTiler:
             self.rows = lines
             self.text = deque(maxlen=self.rows)
 
+        def resize(self, lines:int):
+            """
+            Resize header text buffer to given size.
+            """
+            self.rows = lines
+            self.text = deque(self.text, maxlen=lines)
+
     class Border:
         """
         Generates terminal border strings using predefined box-drawing
