@@ -912,13 +912,14 @@ class TerminalTiler:
                     if self.textWrap == TerminalTiler.Style.Wrap.NOWRAP:
                         output = line[:self.cols]
                         self.text.append(self.justify(output, self.textJust, self.cols))
-                        self.tIndex = len(self.text) - 1
                     elif self.textWrap == TerminalTiler.Style.Wrap.WRAP:
                         for i in range(0, len(line), self.cols):
                             output = line[i:i+self.cols]
                             self.text.append(self.justify(output, self.textJust, self.cols))
-                            self.tIndex += len(self.text) - 1
                     elif self.textWrap == TerminalTiler.Style.Wrap.WORD_WRAP:
+                        if len(line) == 0:
+                            self.text.append(self.justify("", self.textJust, self.cols))
+                            continue
                         pos = 0
                         while pos < len(line):
                             end = min(pos + self.cols, len(line))
@@ -937,7 +938,8 @@ class TerminalTiler:
                                 pos = end
 
                             self.text.append(self.justify(output, self.textJust, self.cols))
-                            self.tIndex += len(self.text) - 1
+
+                self.tIndex = len(self.text) - 1
 
                 if self.visible:
                     # write text
@@ -967,6 +969,9 @@ class TerminalTiler:
                             output = line[i:i+cols]
                             self.header.text.append(self.justify(output, self.header.textJust, cols))
                     elif self.textWrap == TerminalTiler.Style.Wrap.WORD_WRAP:
+                        if len(line) == 0:
+                            self.text.append(self.justify("", self.textJust, self.cols))
+                            continue
                         pos = 0
                         while pos < len(line):
                             end = min(pos + cols, len(line))
