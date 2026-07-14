@@ -43,7 +43,7 @@ messagebox.addButton(
 )
 
 # INTRO
-display.update("Welcome to the MessageBox demo.\n \nPress any key to continue.")
+display.update("Welcome to the MessageBox demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.clear()
 
@@ -74,7 +74,7 @@ messagebox.show()
 display.clear()
 
 # OUTRO
-display.update("The End.\n \nPress any key to continue.")
+display.update("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
