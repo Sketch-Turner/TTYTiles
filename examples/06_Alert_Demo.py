@@ -22,14 +22,14 @@ alert = tt.addAlert(
     y=display.y + 5,
     width=30,
     height=9,
-    text = "Alert!\n \nPress any key to continue.",
+    text = "Alert!\n\nPress any key to continue.",
     textJust=TerminalTiler.Style.Justify.CENTERED,
     textWrap=TerminalTiler.Style.Wrap.WORD_WRAP,
     borderStyle=TerminalTiler.Border.SINGLE_BOX
 )
 
 # INTRO
-display.update("Welcome to the Alert demo.\n \nPress any key to continue.")
+display.update("Welcome to the Alert demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.clear()
 
@@ -47,7 +47,7 @@ alert.show(3)
 display.clear()
 
 # OUTRO
-display.update("The End.\n \nPress any key to continue.")
+display.update("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
