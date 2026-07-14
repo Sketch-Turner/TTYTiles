@@ -17,7 +17,7 @@ display = tt.addDisplayTile(
 )
 
 # INTRO
-display.update("Welcome to the DisplayTile demo.\n \nPress any key to continue.")
+display.update("Welcome to the DisplayTile demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.clear()
 
@@ -44,7 +44,7 @@ display.clear()
 
 # FIXED
 display.updateHeader("Size Mode: FIXED")
-display.update("DisplayTile text disappears after scrolling off-screen.\n \n \n ")
+display.update("DisplayTile text disappears after scrolling off-screen.\n\n\n")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 for i in range(10):
     display.update(f"Line {i + 1}")
@@ -61,7 +61,7 @@ display.drawBorder()
 
 # SCROLLING
 display.updateHeader("Size Mode: SCROLLING")
-display.update("DisplayTile text can be scrolled with the keyboard.\n \n \n ")
+display.update("DisplayTile text can be scrolled with the keyboard.\n\n\n")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 for i in range(10):
     display.update(f"Line {i + 1}")
@@ -129,8 +129,8 @@ display.clear()
 
 # OUTRO
 display.updateHeader("The End")
-display.update("Press ESC to continue.")
-tt.waitForKey(TerminalTiler.Keyboard.KEY_ESCAPE)
+display.update("Press any key to continue.")
+tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
 tt.close()
