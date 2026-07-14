@@ -4382,7 +4382,7 @@ class TerminalTiler:
         # check if threads are exiting
         if self.isAlive():
             # check if popup is active
-            with self.popup:
+            if self.popup.acquire(blocking=False):
                 # check if another thread is writing
                 with self.lock:
                     # fg
@@ -4397,6 +4397,7 @@ class TerminalTiler:
 
                     # reset color
                     os.write(self.stdout_FDI.real_fd, f"\033[0m".encode())
+                self.popup.release()
 
     def close(self):
         """
