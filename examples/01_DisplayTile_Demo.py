@@ -127,7 +127,7 @@ display.update("NOWRAP - No text wrapping.\nWRAP - Text wrapping. Text is wrappe
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.clear()
 
-#OUTRO
+# OUTRO
 display.updateHeader("The End")
 display.update("Press ESC to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ESCAPE)
