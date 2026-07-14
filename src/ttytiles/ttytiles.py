@@ -3398,6 +3398,14 @@ class TerminalTiler:
 
                 self.drawBorder()
 
+        def hide(self):
+            """
+            Hides table.
+            """
+            with self.mutate:
+                self.visible = False
+                self.displayTile.hide()
+
         def escapeCSV(self, text)->str:
             """
             Escapes text according to CSV format.
