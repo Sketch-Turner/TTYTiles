@@ -3261,6 +3261,16 @@ class TerminalTiler:
             with self.mutate:
                 self.cells[y][x].update(text)
 
+        def updateHeader(self, text:str):
+            """
+            Appends new text to the tile's header buffer and renders
+            the visible header region in the terminal.
+
+            Args:
+                text (str): Text to add to text buffer.
+            """
+            self.displayTile.updateHeader(text)
+
         def drawBorder(self):
             """
             Draws the table border and internal grid lines.
