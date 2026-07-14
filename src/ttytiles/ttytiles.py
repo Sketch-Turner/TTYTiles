@@ -2262,6 +2262,8 @@ class TerminalTiler:
                 self.text = text
                 self.hotkey = hotkey
                 self.value = value
+                self.width=width
+                self.height=height
                 self.displayTile = TerminalTiler.DisplayTile(
                     write_func=write_func,
                     merge_func=None,
@@ -2423,21 +2425,21 @@ class TerminalTiler:
                 row_count = 0
                 rows = 0
 
-                for rect in self.buttons:
-                    candidate_width = row_width + rect.displayTile.width
+                for b in self.buttons:
+                    candidate_width = row_width + b.width
                     candidate_count = row_count + 1
 
                     # need candidate_count + 1 gaps (left, right, between)
                     if candidate_width + candidate_count + 1 <= self.displayTile.cols:
                         row_width = candidate_width
-                        row_height = max(row_height, rect.displayTile.height)
+                        row_height = max(row_height, b.height)
                         row_count = candidate_count
                     else:
                         total_height += row_height
                         rows += 1
 
-                        row_width = rect.displayTile.width
-                        row_height = rect.displayTile.height
+                        row_width = b.width
+                        row_height = b.height
                         row_count = 1
 
                 if row_count:
@@ -2542,7 +2544,7 @@ class TerminalTiler:
                 with self.lock:
                     button_rows = self.getButtonLayoutHeight()
                     self.displayTile.text.clear()
-                    self.displayTile.update(self.text + '\n' * button_rows)
+                    self.displayTile.update(self.text + '\n ' * button_rows)
 
         def drawButtons(self):
             with self.mutate:
@@ -2553,21 +2555,21 @@ class TerminalTiler:
                 total_height = 0
 
                 # build rows
-                for rect in self.buttons:
-                    candidate_width = row_width + rect.displayTile.width
+                for b in self.buttons:
+                    candidate_width = row_width + b.width
                     candidate_count = len(row) + 1
 
                     if candidate_width + candidate_count + 1 <= self.displayTile.cols:
-                        row.append(rect)
+                        row.append(b)
                         row_width = candidate_width
-                        row_height = max(row_height, rect.displayTile.height)
+                        row_height = max(row_height, b.height)
                     else:
                         rows.append((row, row_width, row_height))
                         total_height += row_height
 
-                        row = [rect]
-                        row_width = rect.displayTile.width
-                        row_height = rect.displayTile.height
+                        row = [b]
+                        row_width = b.width
+                        row_height = b.height
 
                 if row:
                     rows.append((row, row_width, row_height))
@@ -2602,19 +2604,16 @@ class TerminalTiler:
 
                     # set button position and call drawing method
                     x = gaps[0]
-                    for i, rect in enumerate(row):
-                        rect.displayTile.x = x + self.displayTile.tx
-                        rect.displayTile.y = y + self.displayTile.ty + (self.displayTile.rows - (total_height)) + 1
+                    for i, b in enumerate(row):
+                        b.displayTile.x = x + self.displayTile.tx
+                        b.displayTile.y = y + self.displayTile.ty + (self.displayTile.rows - (total_height)) + 1
+                        b.displayTile.resize(width=b.width, height=b.height)
+                        b.displayTile.drawBorder()
+                        b.displayTile.text.clear()
+                        b.displayTile.update(b.text)
+                        b.displayTile.drawText()
 
-                        rect.displayTile.tx = rect.displayTile.x if rect.displayTile.border.style == TerminalTiler.Border.NO_BORDER else rect.displayTile.x + 1
-                        rect.displayTile.ty = rect.displayTile.y if rect.displayTile.border.style == TerminalTiler.Border.NO_BORDER else rect.displayTile.y + 1
-
-                        rect.displayTile.drawBorder()
-                        rect.displayTile.text.clear()
-                        rect.displayTile.update(rect.text)
-                        rect.displayTile.drawText()
-
-                        x += rect.displayTile.width + gaps[i + 1]
+                        x += b.displayTile.width + gaps[i + 1]
 
                     y += row_height + 1
 
