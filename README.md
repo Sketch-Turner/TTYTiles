@@ -523,10 +523,12 @@ Alerts are displayed using:
 alert.show(duration, close_key)
 ```
 
-| | `close_key=None` | `close_key=<key>` |
-|---|---|---|
-| **`duration < 0`** | Wait indefinitely until **any key** is pressed. | Wait indefinitely until the specified `TerminalTiler.Keyboard` key is pressed. |
-| **`duration > 0`** | Display the alert for the specified number of seconds, then close automatically. | Display the alert until the specified key is pressed **or** the specified number of seconds has passed. |
+| Parameters | Behavior |
+|------------|----------|
+| `duration < 0`, `close_key=None` | Wait until **any key** is pressed. |
+| `duration < 0`, `close_key=<key>` | Wait until the specified `TerminalTiler.Keyboard` key is pressed. |
+| `duration > 0`, `close_key=None` | Display the alert for the specified number of seconds. |
+| `duration > 0`, `close_key=<key>` | Display the alert until the specified key is pressed or the specified number of seconds has passed. |
 
 Examples:
 
