@@ -98,7 +98,7 @@ while tt.isAlive():
     except queue.Empty:
         pass
 
-#OUTRO
+# OUTRO
 input1.hide()
 input2.hide()
 display.clear()
