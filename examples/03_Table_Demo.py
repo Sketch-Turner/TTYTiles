@@ -29,7 +29,7 @@ table = tt.addTable(
 )
 
 # INTRO
-display.update("Welcome to the Table demo.\n \nPress any key to continue.")
+display.update("Welcome to the Table demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.clear()
 
@@ -83,7 +83,7 @@ display.clear()
 display.y += 5
 display.resize(height=10)
 display.show()
-display.update("The End.\n \nPress any key to continue.")
+display.update("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
