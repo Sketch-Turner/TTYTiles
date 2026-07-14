@@ -73,7 +73,7 @@ while tt.isAlive():
 
 # MULTIPLE
 display.clear()
-display.update("Keyboard input will be sent to the focused element. This allows multiple InputTiles to be active at once. Use TAB to switch between elements.\n \nType 'next' to continue.")
+display.update("Keyboard input will be sent to the focused element. This allows multiple InputTiles to be active at once. Use TAB to switch between elements.\n\nType 'next' to continue.")
 input1.hide()
 input1.resize(width=(display.width - 1) // 2, height=3)
 input1.setPrompt(">")
@@ -102,7 +102,7 @@ while tt.isAlive():
 input1.hide()
 input2.hide()
 display.clear()
-display.update("The End.\n \nPress any key to continue.")
+display.update("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
