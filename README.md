@@ -525,10 +525,10 @@ alert.show(duration, close_key)
 
 | Parameters | Behavior |
 |------------|----------|
-| `duration < 0`, `close_key=None` | Wait until **any key** is pressed. |
-| `duration < 0`, `close_key=<key>` | Wait until the specified `TerminalTiler.Keyboard` key is pressed. |
-| `duration > 0`, `close_key=None` | Display the alert for the specified number of seconds. |
-| `duration > 0`, `close_key=<key>` | Display the alert until the specified key is pressed or the specified number of seconds has passed. |
+| <code>duration &lt; 0, close_key=None</code> | Wait until **any key** is pressed. |
+| <code>duration &lt; 0, close_key=&lt;key&gt;</code> | Wait until the specified `TerminalTiler.Keyboard` key is pressed. |
+| <code>duration &gt; 0, close_key=None</code> | Display the alert for the specified number of seconds. |
+| <code>duration &gt; 0, close_key=&lt;key&gt;</code> | Display the alert until the specified key is pressed or the specified number of seconds has passed. |
 
 Examples:
 
