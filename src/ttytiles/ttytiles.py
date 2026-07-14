@@ -3582,7 +3582,7 @@ class TerminalTiler:
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
-            raise ValueError("DisplayTile origin is not contained by terminal")
+            raise ValueError(f"DisplayTile origin is not contained by terminal ({x}, {y})")
         elif x + width - 1 > self.cols:
             raise ValueError(f"DisplayTile exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
         elif y + height - 1 > self.rows:
@@ -3677,7 +3677,7 @@ class TerminalTiler:
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
-            raise ValueError("InputTile origin is not contained by terminal")
+            raise ValueError(f"InputTile origin is not contained by terminal ({x}, {y})")
         elif x + width - 1 > self.cols:
             raise ValueError(f"InputTile exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
         elif y + height - 1 > self.rows:
@@ -3796,7 +3796,7 @@ class TerminalTiler:
                 height = 3
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
-            raise ValueError("ProgressBar origin is not contained by terminal")
+            raise ValueError(f"ProgressBar origin is not contained by terminal ({x}, {y})")
         elif x + width - 1 > self.cols:
             raise ValueError(f"ProgressBar exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
         elif y + height - 1 > self.rows:
@@ -3866,7 +3866,7 @@ class TerminalTiler:
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
-            raise ValueError("Alert origin is not contained by terminal")
+            raise ValueError(f"Alert origin is not contained by terminal ({x}, {y})")
         elif x + width - 1 > self.cols:
             raise ValueError(f"Alert exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
         elif y + height - 1 > self.rows:
@@ -3932,7 +3932,7 @@ class TerminalTiler:
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
-            raise ValueError("MessageBox origin is not contained by terminal")
+            raise ValueError(f"MessageBox origin is not contained by terminal ({x}, {y})")
         elif x + width - 1 > self.cols:
             raise ValueError(f"MessageBox exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
         elif y + height - 1 > self.rows:
@@ -4026,7 +4026,7 @@ class TerminalTiler:
         """
         #check dimensions
         if x <= 0 or x >= self.cols or y <= 0 or y >= self.rows:
-            raise ValueError("Table origin is not contained by terminal")
+            raise ValueError(f"Table origin is not contained by terminal ({x}, {y})")
         elif x + width - 1 > self.cols:
             raise ValueError(f"Table exceeds terminal boundary (X-axis) {x + width - 1} > {self.cols}")
         elif y + height - 1 > self.rows:
