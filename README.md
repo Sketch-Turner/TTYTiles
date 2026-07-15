@@ -78,6 +78,126 @@ All interface elements are created through `TerminalTiler` factory methods.
 
 Each method validates that the element fits within the terminal before it is created.
 
+#### Borders
+
+Borders define the appearance of an element's outline. A border may use one of the built-in styles or a custom character set. Border styles, colors, and focused variants may be specified when the element is created.
+
+| Constructor | Description |
+|--------------|-------------|
+| `borderStyle` | Border style (`NO_BORDER`, `SINGLE_BOX`, `DOUBLE_BOX`, `HEAVY_BOX`, `ASCII`, `HEAVY_ASCII`) |
+| `borderChar` | Custom border character set. Overrides `borderStyle`. |
+| `borderStyleFocused` | Border style while focused. Defaults to `borderStyle`. |
+| `borderCharFocused` | Custom focused border character set. Overrides `borderStyleFocused`. |
+| `borderFG` | Border foreground color |
+| `borderBG` | Border background color |
+| `borderFG_F` | Focused border foreground color |
+| `borderBG_F` | Focused border background color |
+
+##### Built-in Styles
+
+TerminalTiler includes the following predefined border styles:
+
+| Character | SINGLE_BOX | DOUBLE_BOX | HEAVY_BOX | ASCII | HEAVY_ASCII |
+|-------|--------------|--------------|--------------|---------|---------------|
+| lineH | `─` | `═` | `━` | `-` | `=` |
+| lineV | `│` | `║` | `┃` | `\|` | `\|` |
+| cornerNW | `┌` | `╔` | `┏` | `+` | `*` |
+| cornerNE | `┐` | `╗` | `┓` | `+` | `*` |
+| cornerSW | `└` | `╚` | `┗` | `+` | `*` |
+| cornerSE | `┘` | `╝` | `┛` | `+` | `*` |
+| junctionVE | `├` | `╠` | `┣` | `+` | `*` |
+| junctionVW | `┤` | `╣` | `┫` | `+` | `*` |
+| junctionHS | `┬` | `╦` | `┳` | `+` | `*` |
+| junctionHN | `┴` | `╩` | `┻` | `+` | `*` |
+| junctionAll | `┼` | `╬` | `╋` | `+` | `*` |
+| boxLower | `▄` | `▄` | `▄` | `#` | `#` |
+| boxUpper | `▀` | `▀` | `▀` | `#` | `#` |
+| boxFull | `█` | `█` | `█` | `#` | `#` |
+| arrowUp | `▲` | `▲` | `▲` | `^` | `^` |
+| arrowDown | `▼` | `▼` | `▼` | `v` | `v` |
+| arrowLeft | `⯇` | `⯇` | `⯇` | `<` | `<` |
+| arrowRight | `⯈` | `⯈` | `⯈` | `>` | `>` |
+
+```python
+display = tt.addDisplayTile(
+    ...,
+    borderStyle=TerminalTiler.Border.SINGLE_BOX,
+    borderStyleFocused=TerminalTiler.Border.DOUBLE_BOX
+)
+```
+
+##### Custom Character Sets
+
+A custom border style may be created by supplying `borderChar`. The provided string defines the complete set of characters used by the border renderer.
+
+The character set is automatically adjusted to exactly 18 characters:
+- If the string is shorter than 18 characters, it is repeated until the limit has been reached.
+- If the string is longer than 18 characters, it is truncated.
+
+| Index | Purpose |
+|-------|---------|
+| 0 | Horizontal line |
+| 1 | Vertical line |
+| 2 | Northwest corner |
+| 3 | Northeast corner |
+| 4 | Southwest corner |
+| 5 | Southeast corner |
+| 6 | Vertical junction with connection to the east |
+| 7 | Vertical junction with connection to the west |
+| 8 | Horizontal junction with connection to the south |
+| 9 | Horizontal junction with connection to the north |
+| 10 | Four-way junction |
+| 11 | Lower half block |
+| 12 | Upper half block |
+| 13 | Full block |
+| 14 | Up arrow |
+| 15 | Down arrow |
+| 16 | Left arrow |
+| 17 | Right arrow |
+
+Example:
+
+```python
+# Custom border identical to TerminalTiler.Border.SINGLE_BOX
+display = tt.addDisplayTile(
+    ...,
+    borderStyle=TerminalTiler.Border.CUSTOM,
+    borderChar="─│┌┐└┘├┤┬┴┼▄▀█▲▼⯇⯈"
+)
+
+# Custom border using a single character.
+# The character is repeated to fill all 18 drawing primitives.
+display = tt.addDisplayTile(
+    ...,
+    borderStyle=TerminalTiler.Border.CUSTOM,
+    borderChar="*"
+)
+```
+
+##### Border Merging
+
+When two bordered elements overlap, their borders are automatically merged if all of the following are true:
+
+- They use compatible border character sets.
+- Their foreground colors are identical.
+- Their background colors are identical.
+
+Otherwise, each border is drawn independently.
+
+```python
+left = tt.addDisplayTile(
+    ...,
+    borderStyle=TerminalTiler.Border.SINGLE_BOX
+)
+
+right = tt.addDisplayTile(
+    ...,
+    borderStyle=TerminalTiler.Border.SINGLE_BOX
+)
+```
+
+Changing either the border style or border colors prevents merging.
+
 #### Focus Management
 
 Keyboard input is sent only to the currently focused element.
@@ -172,6 +292,16 @@ Features include:
 
 See example `01_DisplayTile_Demo`.
 
+#### Updating
+One or more threads can update the DisplayTile in realtime using:
+
+```python
+displayTile.updateHeader("Text")
+displayTile.update("Text")
+```
+
+The text is appended and formatted according to the size, justification and wrap settings.
+
 #### Size Modes
 `DisplayTile` supports two size modes from `TerminalTiler.Style.Size`:
 
@@ -212,15 +342,46 @@ Header and text buffers may use different justification modes.
 | `CENTERED` | Centers text within the available width. |
 | `RJUST` | Right-aligns text within the available width. |
 
-#### Output
-One or more threads can update the DisplayTile in realtime using:
+#### Colors
+
+DisplayTiles support independent colors for the text, border, and header, each with optional focused variants. Colors may be specified when the tile is created using `addDisplayTile()` or changed later using `setColor()`.
+
+Each color is an RGB tuple of the form `(R, G, B)`. Passing `None` to `setColor()` resets all colors to their defaults.
+
+| Constructor | `setColor()` Key | Description |
+|--------------|------------------|-------------|
+| `colorFG` | `TEXT_FG` | Text foreground |
+| `colorBG` | `TEXT_BG` | Text background |
+| `colorFG_F` | `TEXT_FG_F` | Focused text foreground |
+| `colorBG_F` | `TEXT_BG_F` | Focused text background |
+| `borderFG` | `BORDER_FG` | Border foreground |
+| `borderBG` | `BORDER_BG` | Border background |
+| `borderFG_F` | `BORDER_FG_F` | Focused border foreground |
+| `borderBG_F` | `BORDER_BG_F` | Focused border background |
+| `headerFG` | `HEADER_FG` | Header foreground |
+| `headerBG` | `HEADER_BG` | Header background |
+| `headerFG_F` | `HEADER_FG_F` | Focused header foreground |
+| `headerBG_F` | `HEADER_BG_F` | Focused header background |
 
 ```python
-displayTile.updateHeader("Text")
-displayTile.update("Text")
-```
+# Constructor
+display = tt.addDisplayTile(
+    ...,
+    colorFG=(100, 149, 237),
+    borderFG=(0, 70, 180),
+    headerFG=(173, 216, 255)
+)
 
-The text is appended and formatted according to the size, justification and wrap settings.
+# Update later
+display.setColor({
+    "TEXT_FG": (100, 149, 237),
+    "BORDER_FG": (0, 70, 180),
+    "HEADER_FG": (173, 216, 255)
+})
+
+# Reset all colors
+display.setColor(None)
+```
 
 ### InputTile
 An `InputTile` is an editable text input widget for collecting keyboard input from the user. It supports cursor navigation, optional prompts, focus management, and multiple simultaneous input fields.
@@ -280,6 +441,47 @@ Focus may be changed with:
 | Enter | Submit the current input |
 | Esc | Clear the current input |
 | Tab | Move focus to the next focusable element |
+
+#### Colors
+
+InputTiles support independent colors for the prompt, input text, and border, each with optional focused variants. Colors may be specified when the tile is created using `addInputTile()` or changed later using `setColor()`.
+
+Each color is an RGB tuple of the form `(R, G, B)`. Passing `None` to `setColor()` resets all colors to their defaults.
+
+| Constructor | `setColor()` Key | Description |
+|--------------|------------------|-------------|
+| `promptFG` | `PROMPT_FG` | Prompt foreground |
+| `promptBG` | `PROMPT_BG` | Prompt background |
+| `promptFG_F` | `PROMPT_FG_F` | Focused prompt foreground |
+| `promptBG_F` | `PROMPT_BG_F` | Focused prompt background |
+| `inputFG` | `INPUT_FG` | Input foreground |
+| `inputBG` | `INPUT_BG` | Input background |
+| `inputFG_F` | `INPUT_FG_F` | Focused input foreground |
+| `inputBG_F` | `INPUT_BG_F` | Focused input background |
+| `borderFG` | `BORDER_FG` | Border foreground |
+| `borderBG` | `BORDER_BG` | Border background |
+| `borderFG_F` | `BORDER_FG_F` | Focused border foreground |
+| `borderBG_F` | `BORDER_BG_F` | Focused border background |
+
+```python
+# Constructor
+input = tt.addInputTile(
+    ...,
+    promptFG=(173, 216, 255),
+    inputFG=(100, 149, 237),
+    borderFG=(0, 70, 180)
+)
+
+# Update later
+input.setColor({
+    "PROMPT_FG": (173, 216, 255),
+    "INPUT_FG": (100, 149, 237),
+    "BORDER_FG": (0, 70, 180)
+})
+
+# Reset all colors
+input.setColor(None)
+```
 
 ### Table
 
@@ -348,6 +550,66 @@ Layout behavior:
 
 - If the total requested size is **smaller** than the available table space, the final row or column expands to fill the remaining space.
 - If the total requested size is **larger** than the available table space, rows or columns are truncated to fit within the table.
+
+#### Colors
+
+Tables support independent colors for the cell text, border, and header, each with optional focused variants. Colors may be specified when the table is created using `addTable()` or changed later using `setColor()`.
+
+Each color is an RGB tuple of the form `(R, G, B)`. Passing `None` to `setColor()` resets all colors to their defaults.
+
+| Constructor | `setColor()` Key | Description |
+|--------------|------------------|-------------|
+| `colorFG` | `TEXT_FG` | Default cell foreground |
+| `colorBG` | `TEXT_BG` | Default cell background |
+| `colorFG_F` | `TEXT_FG_F` | Default focused cell foreground |
+| `colorBG_F` | `TEXT_BG_F` | Default focused cell background |
+| `borderFG` | `BORDER_FG` | Border foreground |
+| `borderBG` | `BORDER_BG` | Border background |
+| `borderFG_F` | `BORDER_FG_F` | Focused border foreground |
+| `borderBG_F` | `BORDER_BG_F` | Focused border background |
+| `headerFG` | `HEADER_FG` | Header foreground |
+| `headerBG` | `HEADER_BG` | Header background |
+| `headerFG_F` | `HEADER_FG_F` | Focused header foreground |
+| `headerBG_F` | `HEADER_BG_F` | Focused header background |
+
+```python
+# Constructor
+table = tt.addTable(
+    ...,
+    colorFG=(100, 149, 237),
+    borderFG=(0, 70, 180),
+    headerFG=(173, 216, 255)
+)
+
+# Update later
+table.setColor({
+    "TEXT_FG": (100, 149, 237),
+    "BORDER_FG": (0, 70, 180),
+    "HEADER_FG": (173, 216, 255)
+})
+
+# Reset all colors
+table.setColor(None)
+```
+
+Individual rows, columns, and cells can also be colored independently.
+
+```python
+# Entire row
+table.rows[0].setColor({
+    "TEXT_FG": (255, 0, 0)
+})
+
+# Entire column
+table.cols[1].setColor({
+    "TEXT_FG": (0, 180, 255)
+})
+
+# Individual cell
+table.cells[2][3].setColor({
+    "TEXT_FG": (0, 255, 0)
+})
+```
 
 ### ProgressBar
 
@@ -433,6 +695,37 @@ Supported specifiers:
 | `mm` | Hundredths of a second |
 | `mmm` | Milliseconds |
 
+#### Colors
+
+ProgressBars support independent colors for the bar text and border. Colors may be specified when the bar is created using `addProgressBar()` or changed later using `setColor()`.
+
+Each color is an RGB tuple of the form `(R, G, B)`. Passing `None` to `setColor()` resets all colors to their defaults.
+
+| Constructor | `setColor()` Key | Description |
+|--------------|------------------|-------------|
+| `colorFG` | `TEXT_FG` | Progress bar foreground |
+| `colorBG` | `TEXT_BG` | Progress bar background |
+| `borderFG` | `BORDER_FG` | Border foreground |
+| `borderBG` | `BORDER_BG` | Border background |
+
+```python
+# Constructor
+progress = tt.addProgressBar(
+    ...,
+    colorFG=(100, 149, 237),
+    borderFG=(0, 70, 180)
+)
+
+# Update later
+progress.setColor({
+    "TEXT_FG": (100, 149, 237),
+    "BORDER_FG": (0, 70, 180)
+})
+
+# Reset all colors
+progress.setColor(None)
+```
+
 ### MessageBox
 
 A `MessageBox` is a modal popup used to display information and collect a button selection from the user. It is rendered above all other elements and temporarily captures keyboard focus until a button is activated.
@@ -497,6 +790,54 @@ messagebox.addButton(
 
 Pressing **Y** immediately activates the button and returns its associated value.
 
+#### Colors
+
+MessageBoxes support independent colors for the message text, border, and buttons. Colors may be specified when the MessageBox and its buttons are created or changed later using `setColor()`.
+
+Each color is an RGB tuple of the form `(R, G, B)`. Passing `None` to `setColor()` resets all colors to their defaults.
+
+| Constructor | `setColor()` Key | Description |
+|--------------|------------------|-------------|
+| `colorFG` | `TEXT_FG` | Message text foreground |
+| `colorBG` | `TEXT_BG` | Message text background |
+| `borderFG` | `BORDER_FG` | MessageBox border foreground |
+| `borderBG` | `BORDER_BG` | MessageBox border background |
+| Button `colorFG` | `BUTTON_TEXT_FG` | Button text foreground |
+| Button `colorBG` | `BUTTON_TEXT_BG` | Button text background |
+| Button `colorFG_F` | `BUTTON_TEXT_FG_F` | Focused button text foreground |
+| Button `colorBG_F` | `BUTTON_TEXT_BG_F` | Focused button text background |
+| Button `borderFG` | `BUTTON_BORDER_FG` | Button border foreground |
+| Button `borderBG` | `BUTTON_BORDER_BG` | Button border background |
+| Button `borderFG_F` | `BUTTON_BORDER_FG_F` | Focused button border foreground |
+| Button `borderBG_F` | `BUTTON_BORDER_BG_F` | Focused button border background |
+
+```python
+# Constructor
+msg = tt.addMessageBox(
+    ...,
+    colorFG=(255, 255, 255),
+    borderFG=(0, 70, 180)
+)
+
+msg.addButton(
+    ...,
+    colorFG=(255, 255, 255),
+    borderFG=(0, 120, 255)
+)
+
+# Update later
+msg.setColor({
+    "TEXT_FG": (255, 255, 255),
+    "BORDER_FG": (0, 70, 180),
+
+    "BUTTON_TEXT_FG": (255, 255, 255),
+    "BUTTON_BORDER_FG": (0, 120, 255)
+})
+
+# Reset all colors
+msg.setColor(None)
+```
+
 ### Alert
 
 An `Alert` is a modal popup used to temporarily display a message. It is rendered above all other elements and automatically closes after a specified timeout or in response to keyboard input.
@@ -549,6 +890,37 @@ alert.show(3)
 
 # Close after 3 seconds or when Escape is pressed
 alert.show(3, TerminalTiler.Keyboard.KEY_ESCAPE)
+```
+
+#### Colors
+
+Alerts support independent colors for the text and border. Colors may be specified when the alert is created using `addAlert()` or changed later using `setColor()`.
+
+Each color is an RGB tuple of the form `(R, G, B)`. Passing `None` to `setColor()` resets all colors to their defaults.
+
+| Constructor | `setColor()` Key | Description |
+|--------------|------------------|-------------|
+| `colorFG` | `TEXT_FG` | Alert foreground |
+| `colorBG` | `TEXT_BG` | Alert background |
+| `borderFG` | `BORDER_FG` | Border foreground |
+| `borderBG` | `BORDER_BG` | Border background |
+
+```python
+# Constructor
+alert = tt.addAlert(
+    ...,
+    colorFG=(255, 255, 255),
+    borderFG=(220, 53, 69)
+)
+
+# Update later
+alert.setColor({
+    "TEXT_FG": (255, 255, 255),
+    "BORDER_FG": (220, 53, 69)
+})
+
+# Reset all colors
+alert.setColor(None)
 ```
 
 ## Examples
