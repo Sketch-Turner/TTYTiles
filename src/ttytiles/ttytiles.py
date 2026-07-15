@@ -4414,15 +4414,15 @@ class TerminalTiler:
         if self.isAlive():
             # set flag
             self.exit.set()
+            # notify waiting threads
+            with self.wait_con:
+                self.wait_con.notify_all()
             # reset cursor
             maxY = max(e.y + e.height for e in self.tiles)
             os.write(self.stdout_FDI.real_fd, f"\x1b[{maxY};1H".encode()) # position
             os.write(self.stdout_FDI.real_fd, "\033[?25h".encode()) # show
             # kill threads
             self.stdout_FDI.close()
-            # notify waiting threads
-            with self.wait_con:
-                self.wait_con.notify_all()
 
     def focus(self, element):
         """
@@ -4470,5 +4470,6 @@ class TerminalTiler:
         """
         self.waitKey = key
         # wait
-        with self.wait_con:
-            self.wait_con.wait()
+        while self.isAlive():
+            with self.wait_con:
+                self.wait_con.wait()
