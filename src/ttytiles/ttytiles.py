@@ -4470,6 +4470,6 @@ class TerminalTiler:
         """
         self.waitKey = key
         # wait
-        while self.isAlive():
+        while self.isAlive() and self.waitKey is not None:
             with self.wait_con:
                 self.wait_con.wait()
