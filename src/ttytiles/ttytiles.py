@@ -4420,9 +4420,11 @@ class TerminalTiler:
             # notify waiting threads
             with self.wait_con:
                 self.wait_con.notify_all()
+            # reset color
+            os.write(self.stdout_FDI.real_fd, f"\033[0m".encode())
             # reset cursor
             maxY = max(e.y + e.height for e in self.tiles)
-            os.write(self.stdout_FDI.real_fd, f"\x1b[{maxY};1H".encode()) # position
+            os.write(self.stdout_FDI.real_fd, f"\x1b[{maxY};1H\r".encode()) # position
             os.write(self.stdout_FDI.real_fd, "\033[?25h".encode()) # show
             # kill threads
             self.stdout_FDI.close()
