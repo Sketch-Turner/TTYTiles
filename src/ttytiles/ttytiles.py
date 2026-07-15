@@ -3341,6 +3341,7 @@ class TerminalTiler:
             remaining space. Any cells outside the visible area are not shown.
             """
             with self.mutate:
+                self.visible = True
                 self.displayTile.drawHeader()
 
                 parent_x2 = self.displayTile.tx + self.displayTile.cols
@@ -4360,7 +4361,8 @@ class TerminalTiler:
             else:
                 # send to element
                 if self.focusedIndex >= 0:
-                    self.tiles[self.focusedIndex].handleInput(key)
+                    if hasattr(self.tiles[self.focusedIndex], "handleInput"):
+                        self.tiles[self.focusedIndex].handleInput(key)
 
             self.popup.release()
         # if popup is active, send input to popup element
@@ -4435,9 +4437,10 @@ class TerminalTiler:
         """
         if element is None:
             # clear old focus
-            if 0 <= self.focusedIndex and self.focusedIndex < len(self.tiles):
+            if self.focusedIndex != -1:
                 self.tiles[self.focusedIndex].focused = False
-                self.tiles[self.focusedIndex].show()
+                if self.tiles[self.focusedIndex].visible:
+                    self.tiles[self.focusedIndex].show()
 
             # set index
             self.focusedIndex = -1
@@ -4452,9 +4455,10 @@ class TerminalTiler:
                 if not index is None:
                     self._write("\033[?25l".encode()) # hide cursor
                     # clear old focus
-                    if 0 <= self.focusedIndex and self.focusedIndex < len(self.tiles):
+                    if self.focusedIndex != -1 and self.focusedIndex < len(self.tiles):
                         self.tiles[self.focusedIndex].focused = False
-                        self.tiles[self.focusedIndex].show()
+                        if self.tiles[self.focusedIndex].visible:
+                            self.tiles[self.focusedIndex].show()
 
                     # set index
                     self.focusedIndex = index
