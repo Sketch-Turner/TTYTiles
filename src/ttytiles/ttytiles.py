@@ -3009,6 +3009,7 @@ class TerminalTiler:
             self.height = height
             self.visible = visible
             self.focused = False
+            self.canFocus = canFocus
             self.displayTile = TerminalTiler.DisplayTile(
                 write_func=write_func,
                 merge_func=merge_func,
@@ -3017,7 +3018,7 @@ class TerminalTiler:
                 width=width,
                 height=height,
                 visible=False,
-                canFocus=canFocus,
+                canFocus=True,
                 colorFG=None,
                 colorBG=None,
                 colorFG_F=None,
