@@ -4341,7 +4341,7 @@ class TerminalTiler:
                 self.focusedIndex += 1
 
                 # find next focusable
-                while (self.focusedIndex < len(self.tiles) and not self.tiles[self.focusedIndex].canFocus):
+                while (self.focusedIndex < len(self.tiles) and not (self.tiles[self.focusedIndex].canFocus and self.tiles[self.focusedIndex].visible)):
                     self.focusedIndex += 1
 
                 # apply or reset
@@ -4427,11 +4427,21 @@ class TerminalTiler:
     def focus(self, element):
         """
         Sets focus to provided element. Element must be valid and able to be focused.
+        If element is None, focus will be removed from currently focused element.
 
         Args:
             element: Element to focus. Must be OutputTile, InputTile, or Table.
         """
-        if isinstance(element, (TerminalTiler.DisplayTile, TerminalTiler.InputTile, TerminalTiler.Table)):
+        if element is None:
+            # clear old focus
+            if 0 <= self.focusedIndex and self.focusedIndex < len(self.tiles):
+                self.tiles[self.focusedIndex].focused = False
+                self.tiles[self.focusedIndex].show()
+
+            # set index
+            self.focusedIndex = -1
+
+        elif isinstance(element, (TerminalTiler.DisplayTile, TerminalTiler.InputTile, TerminalTiler.Table)):
             if element.canFocus:
                 index = None
                 for i, t in enumerate(self.tiles):
