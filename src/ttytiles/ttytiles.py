@@ -440,15 +440,15 @@ class TerminalTiler:
         DOUBLE_BOX = 3
         HEAVY_BOX = 4
         ASCII = 5
-        ASCII_ALT = 6
-        BORDER_STYLES = {NO_BORDER, CUSTOM, SINGLE_BOX, DOUBLE_BOX, HEAVY_BOX, ASCII, ASCII_ALT}
-        BORDER_CHARS = {NO_BORDER:  "",
-                        CUSTOM:     "",
-                        SINGLE_BOX: "─│┌┐└┘├┤┬┴┼▄▀█▲▼⯇⯈",
-                        DOUBLE_BOX: "═║╔╗╚╝╠╣╦╩╬▄▀█▲▼⯇⯈",
-                        HEAVY_BOX:  "━┃┏┓┗┛┣┫┳┻╋▄▀█▲▼⯇⯈",
-                        ASCII:      "-|+++++++++###^v<>",
-                        ASCII_ALT:  "=|*********###^v<>"
+        HEAVY_ASCII = 6
+        BORDER_STYLES = {NO_BORDER, CUSTOM, SINGLE_BOX, DOUBLE_BOX, HEAVY_BOX, ASCII, HEAVY_ASCII}
+        BORDER_CHARS = {NO_BORDER:    "",
+                        CUSTOM:       "",
+                        SINGLE_BOX:   "─│┌┐└┘├┤┬┴┼▄▀█▲▼⯇⯈",
+                        DOUBLE_BOX:   "═║╔╗╚╝╠╣╦╩╬▄▀█▲▼⯇⯈",
+                        HEAVY_BOX:    "━┃┏┓┗┛┣┫┳┻╋▄▀█▲▼⯇⯈",
+                        ASCII:        "-|+++++++++###^v<>",
+                        HEAVY_ASCII:  "=|*********###^v<>"
                         }
 
         def __init__(self,
