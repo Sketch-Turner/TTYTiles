@@ -90,7 +90,12 @@ tt.focus(element)
 
 or by pressing **Tab** to cycle through focusable elements.
 
-Elements with `canFocus=False` are skipped during navigation.
+Elements with `canFocus=False` are skipped during navigation.  
+
+Focus may be removed from the current element:
+```python
+tt.focus(None)
+```
 
 #### Keyboard Input
 
