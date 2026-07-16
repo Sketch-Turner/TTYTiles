@@ -38,17 +38,16 @@ table = tt.addTable(
 )
 
 # INTRO
-display.update("Welcome to the Color demo.\n\nPress any key to continue.")
+display.set("Welcome to the Color demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # FG
 display.header.resize(1)
-display.header.textJust=TerminalTiler.Style.Justify.CENTERED
+display.header.textJust = TerminalTiler.Style.Justify.CENTERED
 display.resize()
 display.drawBorder()
-display.updateHeader("Color Demo")
-display.update("Each element has components that may be assigned custom RGB foreground and background colors if the terminal supports it.\n\nFor DisplayTiles these include:")
+display.header.set("Color Demo")
+display.set("Each element has components that may be assigned custom RGB foreground and background colors if the terminal supports it.\n\nFor DisplayTiles these include:")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 display.update(" - Header")
@@ -62,11 +61,9 @@ tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.update(" - Border")
 display.setColor({"BORDER_FG":(0, 70, 180),"BORDER_FG_F":(211, 47, 47)})
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
-display.update("Alterate colors can be defined for when the element is focused.\n\nPress TAB to change focus.\nPress ESC to continue.")
+display.set("Alternate colors can be defined for when the element is focused.\n\nPress TAB to change focus.\nPress ESC to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ESCAPE)
-display.clear()
 
 # INPUT
 display.header.resize(0)
@@ -76,7 +73,7 @@ tt.focus(None)
 input.show()
 display.canFocus = False
 display.show()
-display.update("InputTiles offer slightly different color customization:\n")
+display.set("InputTiles offer slightly different color customization:\n")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 display.update(" - Prompt")
@@ -90,24 +87,24 @@ tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.update(" - Border")
 input.setColor({"BORDER_FG":(0, 70, 180),"BORDER_FG_F":(211, 47, 47)})
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
-display.update("Alterate colors can be defined for when the element is focused.\n\nPress TAB to change focus.\nType 'next' to continue.")
+display.set("Alternate colors can be defined for when the element is focused.\n\nPress TAB to change focus.\nType 'next' to continue.")
 while tt.isAlive():
     s = input.getInput()
     if s:
         if s.upper() == "NEXT":
             break
-display.clear()
+
 input.canFocus = False
 input.hide()
 tt.focus(None)
 
 # TABLE
 display.hide()
-display.resize(height=5)
+display.y -= 2
+display.resize(height=7)
 display.show()
-display.update("Tables have the same color configuration options as DisplayTiles. Individual customization of each row, col, or cell is also avaliable.")
+display.set("Tables have the same color configuration options as DisplayTiles.\nIndividual customization of each row, col, or cell is also available.")
 
 table.load([["" for j in range(8)] for i in range(8)])
 table.show()
@@ -147,15 +144,15 @@ for i in range(table.table_rows):
         table.cells[i][j].update("▐█▌")
         table.cells[i][j].setColor({"TEXT_FG": color})
 
-tt.waitForKey(TerminalTiler.Keyboard.KEY_ESCAPE)
+tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # OUTRO
 table.hide()
 display.hide()
-display.clear()
+display.y += 2
 display.resize(height=10)
 display.show()
-display.update("The End.\n\nPress any key to continue.")
+display.set("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
