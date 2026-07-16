@@ -26,29 +26,24 @@ display2 = tt.addDisplayTile(
     textWrap=TerminalTiler.Style.Wrap.WORD_WRAP,
 )
 
-
-
 # INTRO
-display1.update("Welcome to the Border demo.\n\nPress any key to continue.")
+display1.set("Welcome to the Border demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display1.clear()
 
 # TYPES
 display1.border.charset = TerminalTiler.Border.Charset(None)
 display1.drawBorder()
-display1.update("By default no border is present.\n\nText will still be bounded by the element and will wrap accordingly.")
+display1.set("By default no border is present.\n\nText will still be bounded by the element and will wrap accordingly.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display1.clear()
 
 display1.border.charset = TerminalTiler.Border.Charset(r"##/\\/")
 display1.drawBorder()
-display1.update("To declare a custom border charset, provide a string containing the desired drawing characters. Each position is mapped to a specific UI element such as lines, corners, and junctions.")
+display1.set(" To declare a custom border charset, provide  a string containing the desired drawing      characters. Each position is mapped to a     specific UI element such as lines, corners,  and junctions.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display1.clear()
 
 display1.border.charset = TerminalTiler.Border.Charset(TerminalTiler.Border.BORDER_CHARS[TerminalTiler.Border.SINGLE_BOX])
 display1.drawBorder()
-display1.update("Built-in border styles include:\n")
+display1.set("Built-in border styles include:\n")
 display1.update(" ┌────────────┐ ╔════════════╗ ┏━━━━━━━━━━━┓")
 display1.update(" │ SINGLE_BOX │ ║ DOUBLE_BOX ║ ┃ HEAVY_BOX ┃")
 display1.update(" └────────────┘ ╚════════════╝ ┗━━━━━━━━━━━┛\n")
@@ -56,30 +51,28 @@ display1.update("          +-------+ *=============*")
 display1.update("          | ASCII | | HEAVY_ASCII |")
 display1.update("          +-------+ *=============*")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display1.clear()
 
 # MERGING
 display1.hide()
+display1.clear()
 display1.resize(width=display1.width//2)
 display1.show()
-display1.update("If the borders of two elements overlap, they may be merged.")
+display1.set("If the borders of two elements overlap, they may be merged.")
+
 display2.show()
-display2.update("If the border style, foreground color, and background color are the same, the borders will be merged.")
+display2.set("If the border style, foreground color, and background color are the same, the borders will be merged.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display2.clear()
 
 display2.border.charset = TerminalTiler.Border.Charset(TerminalTiler.Border.BORDER_CHARS[TerminalTiler.Border.HEAVY_BOX])
 display2.drawBorder()
-display2.update("If the style or colors do not match, the borders will not be merged.")
+display2.set("If the style or colors do not match, the borders will not be merged.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-
 
 # OUTRO
 display2.hide()
-display1.clear()
 display1.resize(width=display1.width*2)
 display1.show()
-display1.update("The End.\n\nPress any key to continue.")
+display1.set("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
