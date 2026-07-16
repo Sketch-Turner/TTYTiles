@@ -17,6 +17,7 @@ display = tt.addDisplayTile(
     canFocus=False
 )
 
+# Create alert
 alert = tt.addAlert(
     x=(tt.cols - 30) // 2,
     y=display.y + 5,
@@ -27,27 +28,23 @@ alert = tt.addAlert(
     textWrap=TerminalTiler.Style.Wrap.WORD_WRAP,
     borderStyle=TerminalTiler.Border.SINGLE_BOX
 )
-
 # INTRO
-display.update("Welcome to the Alert demo.\n\nPress any key to continue.")
+display.set("Welcome to the Alert demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # KEYPRESS
-display.update("The Alert is a popup that is drawn over all other elements.")
+display.set("The Alert is a popup that is drawn over all other elements.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 alert.show(-1)
-display.clear()
 
 # TIME
-display.update("Alerts may be configure to close with a specific keypress, any keypress, or after a certain time has passed.")
+display.set("Alerts may be configured to close with a specific keypress, any keypress, or after a certain time has passed.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 alert.text = "3 second Alert!"
 alert.show(3)
-display.clear()
 
 # OUTRO
-display.update("The End.\n\nPress any key to continue.")
+display.set("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
