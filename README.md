@@ -1,14 +1,24 @@
 # TTYTiles
-Python library for managing terminal UI elements. Allows creation and positioning of customizable elements. Provides configuration of border, color, text wrapping, and text justification. User input can be captured using the InputTile element. Output can be displayed via OutputTile, Table, ProgressBar, MessageBox, or Alert elements. 
+
+Python library for creating customizable terminal user interfaces. Provides tools for creating, positioning, and managing interactive UI elements with configurable borders, colors, text wrapping, and justification.
+
+Supports user input through `InputTile` and terminal output through `DisplayTile`, `Table`, `ProgressBar`, `MessageBox`, and `Alert` components.
 
 gif
 
 ## Contents
-Requirements
-Installation
-Usage
-Examples
-Issues
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [TerminalTiler](#terminaltiler)
+  - [DisplayTile](#displaytile)
+  - [InputTile](#inputtile)
+  - [Table](#table)
+  - [ProgressBar](#progressbar)
+  - [MessageBox](#messagebox)
+  - [Alert](#alert)
+- [Examples](#examples)
+- [Issues](#issues)
 
 ## Requirements
 Python >=3.10
