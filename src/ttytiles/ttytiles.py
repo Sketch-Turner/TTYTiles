@@ -1135,8 +1135,6 @@ class TerminalTiler:
             """
             with self.mutate:
                 self.visible = True
-                # hide cursor
-                self.write("\033[?25l".encode())
                 self.drawBorder()
                 self.drawHeader()
                 self.drawText()
@@ -1147,8 +1145,6 @@ class TerminalTiler:
             """
             with self.mutate:
                 self.visible = False
-                # hide cursor
-                self.write("\033[?25l".encode())
                 for i in range(self.height):
                     self.write(f"\x1b[{self.y + i};{self.x}H{' ' * self.width}".encode())
 
@@ -2228,7 +2224,6 @@ class TerminalTiler:
 
                     self.visible = True
                     self.displayTile.visible = True
-                    self.displayTile.write("\033[?25l".encode())  # hide cursor
                     self.displayTile.drawBorder()
                     self.displayTile.set(self.text)
 
@@ -2744,7 +2739,6 @@ class TerminalTiler:
                         self.close.clear()
                         self.visible = True
                         self.displayTile.visible = True
-                        self.displayTile.write("\033[?25l".encode())  # hide cursor
                         self.displayTile.drawBorder()
                         if self.displayTile.header:
                             self.displayTile.header.set(self.headerText)
@@ -4501,7 +4495,8 @@ class TerminalTiler:
             with self.popup:
                 # check if another thread is writing
                 with self.lock:
-
+                    # hide cursor
+                    os.write(self.stdout_FDI.real_fd, "\033[?25l".encode())
                     # fg
                     if not fg_color is None:
                         os.write(self.stdout_FDI.real_fd, f"\033[38;2;{fg_color[0]};{fg_color[1]};{fg_color[2]}m".encode())
@@ -4534,7 +4529,10 @@ class TerminalTiler:
             # reset color
             os.write(self.stdout_FDI.real_fd, f"\033[0m".encode())
             # reset cursor
-            maxY = max(e.y + e.height for e in self.tiles)
+            if len(self.tiles) > 0:
+                maxY = max(e.y + e.height for e in self.tiles)
+            else:
+                maxY = 1
             os.write(self.stdout_FDI.real_fd, f"\x1b[{maxY};1H\r".encode()) # position
             os.write(self.stdout_FDI.real_fd, "\033[?25h".encode()) # show
             # kill threads
