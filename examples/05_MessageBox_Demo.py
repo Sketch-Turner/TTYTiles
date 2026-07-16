@@ -41,20 +41,17 @@ messagebox.addButton(
     borderStyle=TerminalTiler.Border.SINGLE_BOX,
     borderStyleFocused=TerminalTiler.Border.HEAVY_BOX
 )
-
 # INTRO
-display.update("Welcome to the MessageBox demo.\n\nPress any key to continue.")
+display.set("Welcome to the MessageBox demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # CONTROLS
-display.update("The MessageBox is a popup that is drawn over all other elements. It will only render if one or more buttons are configured.")
+display.set("The MessageBox is a popup that is drawn over all other elements. It will only render if one or more buttons are configured.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 messagebox.show()
-display.clear()
 
 # HOTKEY
-display.update("MessageBox buttons can be assigned a hotkey. When the hotkey is pressed or the button is selected, the MessageBox returns the value of the button.")
+display.set("MessageBox buttons can be assigned a hotkey. When the hotkey is pressed or the button is selected, the MessageBox returns the value of the button.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 messagebox.buttons[0].width = 9
@@ -62,7 +59,7 @@ messagebox.buttons[0].text = "(A)lpha"
 messagebox.buttons[0].hotkey = 'a'
 messagebox.addButton(
     value=None,
-    width= 9,
+    width=9,
     height=3,
     text="(B)ravo",
     hotkey='b',
@@ -71,10 +68,9 @@ messagebox.addButton(
     borderStyleFocused=TerminalTiler.Border.HEAVY_BOX
 )
 messagebox.show()
-display.clear()
 
 # OUTRO
-display.update("The End.\n\nPress any key to continue.")
+display.set("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
