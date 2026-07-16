@@ -157,10 +157,10 @@ if __name__ == "__main__":
     info.update(f"Threads : {THREADS}")
 
     # Configure port result panels.
-    open_ports.updateHeader("Open")
+    open_ports.header.set("Open")
     open_ports.setColor({"BORDER_FG_F": (52, 152, 219)})
 
-    closed_ports.updateHeader("Closed")
+    closed_ports.header.set("Closed")
     closed_ports.setColor({"BORDER_FG_F": (52, 152, 219)})
 
     # Display the progress bar.
@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
     # Display completion message.
     status.setColor({"TEXT_FG": (46, 204, 113)})
-    status.update(
+    status.set(
         "Scan Complete!\n"
         "Press TAB to select Display.\n"
         "Press ESC to exit."
