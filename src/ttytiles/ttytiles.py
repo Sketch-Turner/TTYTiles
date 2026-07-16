@@ -53,14 +53,28 @@ class TerminalTiler:
             self.subscribers = set()
             self.exit = None
             self.thread = None
+            self.old_term = None
 
         def start(self, exit_event):
             """
             Starts the background keyboard reader thread.
             """
             self.exit = exit_event
+
+            if os.name != "nt":
+                fd = sys.stdin.fileno()
+                self.old_term = termios.tcgetattr(fd)
+
             self.thread = threading.Thread(target=self._read, daemon=True)
             self.thread.start()
+
+        def close(self):
+            """
+            Restores the terminal state.
+            """
+            if os.name != "nt" and self.old_term is not None:
+                fd = sys.stdin.fileno()
+                termios.tcsetattr(fd, termios.TCSADRAIN, self.old_term)
 
         def subscribe(self, func):
             """
@@ -132,8 +146,6 @@ class TerminalTiler:
             else:
                 fd = sys.stdin.fileno()
 
-                old = termios.tcgetattr(fd)
-
                 try:
                     tty.setraw(fd)
 
@@ -188,7 +200,7 @@ class TerminalTiler:
                     return ch.decode(errors="ignore")
 
                 finally:
-                    termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                    pass
 
         @staticmethod
         def isPrintable(s:str)->bool:
@@ -4489,7 +4501,7 @@ class TerminalTiler:
             with self.popup:
                 # check if another thread is writing
                 with self.lock:
-                    
+
                     # fg
                     if not fg_color is None:
                         os.write(self.stdout_FDI.real_fd, f"\033[38;2;{fg_color[0]};{fg_color[1]};{fg_color[2]}m".encode())
@@ -4512,6 +4524,8 @@ class TerminalTiler:
         visibility, and shuts down the stdout FDInterceptor cleanly.
         """
         if self.isAlive():
+            # restore keyboard
+            self.keyboard.close()
             # set flag
             self.exit.set()
             # notify waiting threads
