@@ -91,8 +91,8 @@ alert = tt.addAlert(
 
 
 # Set display headers.
-tile_even.updateHeader("Even Numbers")
-tile_odd.updateHeader("Odd Numbers")
+tile_even.header.set("Even Numbers")
+tile_odd.header.set("Odd Numbers")
 
 
 # Start with the input tile selected.
