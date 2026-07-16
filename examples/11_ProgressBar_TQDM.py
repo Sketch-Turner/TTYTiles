@@ -33,7 +33,7 @@ labels = tt.addDisplayTile(
     height=8,
     textJust=TerminalTiler.Style.Justify.CENTERED
 )
-labels.update("TerminalTiler.ProgressBar\n\n\n\n\ntqdm")
+labels.set("TerminalTiler.ProgressBar\n\n\n\n\ntqdm")
 
 # Create a standard tqdm progress bar for comparison.
 with tqdm.tqdm(total=100) as pbar2:
