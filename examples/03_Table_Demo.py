@@ -29,18 +29,17 @@ table = tt.addTable(
 )
 
 # INTRO
-display.update("Welcome to the Table demo.\n\nPress any key to continue.")
+display.set("Welcome to the Table demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # FORMATTING
 display.hide()
 display.y -= 5
 display.resize(height=5)
 display.show()
-display.update("Tables have the same header, text justification and text wrapping options as DisplayTiles.")
+display.set("Tables have the same header, text justification and text wrapping options as DisplayTiles.")
 
-table.updateHeader("Example Table")
+table.header.set("Example Table")
 table.load([
     ["Label 1", "Label 2", "Label 3"],
     ["Data A", "Data D", "Data G"],
@@ -52,8 +51,7 @@ table.show()
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # LAYOUT
-display.clear()
-display.update("Table space is divided evenly among rols and columns. Row and column size may also be customized.")
+display.set("Table space is divided evenly among rows and columns. Row and column size may also be customized.")
 table.row_list[0].size = 1
 table.col_list[0].size -= 6
 table.col_list[1].size += 12
@@ -61,15 +59,13 @@ table.show()
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # OVERFLOW
-display.clear()
-display.update("If the size of all rows or columns is less than the table space, the last row or column will expand.")
+display.set("If the size of all rows or columns is less than the table space, the last row or column will expand.")
 table.col_list[0].size = 7
 table.col_list[1].size = 7
 table.show()
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
-display.clear()
-display.update("If the size of all rows or columns is greater than the table space, rows or columns may be truncated.")
+display.set("If the size of all rows or columns is greater than the table space, rows or columns may be truncated.")
 table.row_list[0].size = 1
 table.col_list[0].size = 39
 table.col_list[1].size = 19
@@ -79,11 +75,10 @@ tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 # OUTRO
 table.hide()
 display.hide()
-display.clear()
 display.y += 5
 display.resize(height=10)
 display.show()
-display.update("The End.\n\nPress any key to continue.")
+display.set("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
