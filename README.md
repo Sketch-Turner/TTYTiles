@@ -36,7 +36,7 @@ display = tt.addDisplayTile(
 )
 
 # Update text
-display.update("\nHello World")
+display.set("\nHello World")
 
 # Wait for keypress
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
@@ -293,14 +293,40 @@ Features include:
 See example `01_DisplayTile_Demo`.
 
 #### Updating
-One or more threads can update the DisplayTile in realtime using:
+
+DisplayTiles support three methods for modifying displayed content:
+
+| Method | Description |
+|--------|-------------|
+| `set(text)` | Replace all existing text with the provided content. Clears the current buffer before adding the new text. |
+| `update(text)` | Append text to the existing buffer. Text is formatted according to the current size, justification, and wrap settings. |
+| `clear()` | Remove all text from the display buffer. |
+
+Example:
 
 ```python
-displayTile.updateHeader("Text")
-displayTile.update("Text")
+# Replace existing content
+display.set("Loading...")
+
+# Append additional content
+display.update("Complete.")
+
+# Remove all content
+display.clear()
 ```
 
-The text is appended and formatted according to the size, justification and wrap settings.
+The header uses the same interface:
+
+```python
+# Replace header text
+display.header.set("Title")
+
+# Append header text
+display.header.update("- Subtitle -")
+
+# Clear the header
+display.header.clear()
+```
 
 #### Size Modes
 `DisplayTile` supports two size modes from `TerminalTiler.Style.Size`:
@@ -507,14 +533,29 @@ Cells may be modified individually or through their containing rows and columns.
 | `table.row_list[row]` | Access a row object. |
 | `table.col_list[col]` | Access a column object. |
 
-Each `Cell`, row, and column exposes formatting methods:
+Each `Cell`, row, and column exposes formatting and content methods:
 
 | Method | Description |
 |--------|-------------|
-| `update(text)` | Replace the cell's text. (Cell only) |
+| `set(text)` | Replace the current text content. |
+| `update(text)` | Append text to the current content. |
+| `clear()` | Remove the current text content. |
 | `setColor(colors)` | Update text colors. |
 | `setTextWrap(mode)` | Change the text wrapping mode. |
 | `setTextJust(mode)` | Change the text justification mode. |
+
+Example:
+
+```python
+# Replace a cell's content
+table.cells[0][0].set("Data A")
+
+# Append to a cell's content
+table.cells[0][0].update("Data B")
+
+# Clear a cell
+table.cells[0][0].clear()
+```
 
 Calling a formatting method on a row or column automatically applies the change to every cell it contains.
 
@@ -947,14 +988,19 @@ Demonstrates modal dialogs, button creation, keyboard navigation, hotkeys, and r
 Demonstrates modal alerts with automatic timeout and keyboard-based dismissal.
 
 ### 07_Color_Demo
+Demonstrates built-in foreground/background RGB color support.
 
 ### 08_Border_Demo
+Showcases the available border styles and how adjacent borders automatically merge.
 
 ### 09_Simple_IO
+Demonstrates basic terminal input and output using `InputField` and `DisplayTile`.
 
 ### 10_Port_Scanner
+A simple multithreaded port scanner demonstrating live terminal updates, progress tracking, and interactive UI components.
 
 ### 11_ProgressBar_TQDM
+When I grow up, I want to be just like TQDM.
 
 ## Issues
 
