@@ -333,12 +333,41 @@ class TerminalTiler:
             self.rows = lines
             self.text = deque(maxlen=self.rows)
 
+            # tile
+            self.tile = None # set by tile
+
         def resize(self, lines:int):
             """
             Resize header text buffer to given size.
             """
             self.rows = lines
             self.text = deque(self.text, maxlen=lines)
+
+        def set(self, text:str):
+            """
+            Sets the tile's header buffer and renders
+            the visible header region in the terminal.
+
+            Args:
+                text (str): Text to add to text buffer.
+            """
+            self.tile.setHeader(text)
+
+        def clear(self):
+            """
+            Clears the header text buffer.
+            """
+            self.tile.clearHeader()
+
+        def update(self, text:str):
+            """
+            Appends new text to the tile's header buffer and renders
+            the visible header region in the terminal.
+
+            Args:
+                text (str): Text to add to text buffer.
+            """
+            self.tile.updateHeader(text)
 
     class Border:
         """
@@ -633,6 +662,7 @@ class TerminalTiler:
             self.sizeMode = sizeMode if sizeMode in TerminalTiler.Style.Size.STYLES else TerminalTiler.Style.Size.FIXED
             self.border = border
             self.header = header
+            self.header.tile = self
             self.write = write_func
             self.mergeBorder = merge_func
 
@@ -670,25 +700,6 @@ class TerminalTiler:
                 self.x + self.width - 1,
                 self.y + self.height - 1
             )
-
-        def clear(self):
-            """
-            Clears the text buffer.
-            """
-            with self.mutate:
-                self.text.clear()
-                self.tIndex = 0
-                if self.visible:
-                    self.show()
-
-        def clearHeader(self):
-            """
-            Clears the header text buffer.
-            """
-            with self.mutate:
-                self.header.text.clear()
-                if self.visible:
-                    self.show()
 
         def resize(self, width:int=None, height:int=None):
             """
@@ -950,6 +961,28 @@ class TerminalTiler:
                     if self.sizeMode == TerminalTiler.Style.Size.SCROLLING:
                         self.drawScrollbar()
 
+        def clear(self, render=True):
+            """
+            Clears the text buffer.
+            """
+            with self.mutate:
+                self.text.clear()
+                self.tIndex = 0
+                if self.visible and render:
+                    self.drawText()
+
+        def set(self, text:str):
+            """
+            Sets the tile's internal buffer and renders
+            the visible text region in the terminal.
+
+            Args:
+                text (str): Text to add to text buffer.
+            """
+            with self.mutate:
+                self.clear(render=False)
+                self.update(text)
+
         def updateHeader(self, text:str):
             """
             Appends new text to the tile's header buffer and renders
@@ -994,6 +1027,27 @@ class TerminalTiler:
 
                 if self.visible:
                     self.drawHeader()
+
+        def clearHeader(self, render=True):
+            """
+            Clears the header text buffer.
+            """
+            with self.mutate:
+                self.header.text.clear()
+                if self.visible and render:
+                    self.drawHeader()
+
+        def setHeader(self, text:str):
+            """
+            Sets the tile's header buffer and renders
+            the visible header region in the terminal.
+
+            Args:
+                text (str): Text to add to text buffer.
+            """
+            with self.mutate:
+                self.clearHeader(render=False)
+                self.updateHeader(text)
 
         def drawHeader(self):
             """
@@ -2123,8 +2177,7 @@ class TerminalTiler:
             """
             with self.mutate:
                 with self.lock:
-                    self.displayTile.text.clear()
-                    self.displayTile.update(self.text)
+                    self.displayTile.set(self.text)
 
         def handleInput(self, key:str):
             """
@@ -2165,8 +2218,7 @@ class TerminalTiler:
                     self.displayTile.visible = True
                     self.displayTile.write("\033[?25l".encode())  # hide cursor
                     self.displayTile.drawBorder()
-                    self.displayTile.text.clear()
-                    self.displayTile.update(self.text)
+                    self.displayTile.set(self.text)
 
                     # wait for set time or until keypress
                     while not self.exit.is_set() and not self.close.is_set():
@@ -2549,8 +2601,7 @@ class TerminalTiler:
             with self.mutate:
                 with self.lock:
                     button_rows = self.getButtonLayoutHeight()
-                    self.displayTile.text.clear()
-                    self.displayTile.update(self.text + '\n ' * button_rows)
+                    self.displayTile.set(self.text + '\n ' * button_rows)
 
         def drawButtons(self):
             with self.mutate:
@@ -2615,8 +2666,7 @@ class TerminalTiler:
                         b.displayTile.y = y + self.displayTile.ty + (self.displayTile.rows - (total_height)) + 1
                         b.displayTile.resize(width=b.width, height=b.height)
                         b.displayTile.drawBorder()
-                        b.displayTile.text.clear()
-                        b.displayTile.update(b.text)
+                        b.displayTile.set(b.text)
                         b.displayTile.drawText()
 
                         x += b.displayTile.width + gaps[i + 1]
@@ -2685,8 +2735,7 @@ class TerminalTiler:
                         self.displayTile.write("\033[?25l".encode())  # hide cursor
                         self.displayTile.drawBorder()
                         if self.displayTile.header:
-                            self.displayTile.header.text.clear()
-                            self.displayTile.updateHeader(self.headerText)
+                            self.displayTile.header.set(self.headerText)
                         self.drawText()
                         self.drawButtons()
 
@@ -2826,8 +2875,7 @@ class TerminalTiler:
 
             def update(self, text:str):
                 """
-                Update the cell's displayed text.
-                Current text is cleared. New text is rendered.
+                Append new text to the cell.
 
                 Args:
                     text (str):
@@ -2835,8 +2883,27 @@ class TerminalTiler:
                 """
                 with self.mutate:
                     self.text = text
-                    self.displayTile.text.clear()
                     self.displayTile.update(text)
+
+            def clear(self):
+                """
+                Clear cell text.
+                """
+                with self.mutate:
+                    self.text = ""
+                    self.displayTile.clear()
+
+            def set(self, text:str):
+                """
+                Set cell text.
+
+                Args:
+                    text (str):
+                        The text to display in the cell.
+                """
+                with self.mutate:
+                    self.text = text
+                    self.displayTile.set(text)
 
             def setColor(self, colors:dict[str, tuple[int, int, int]]=None):
                 """
@@ -3010,6 +3077,7 @@ class TerminalTiler:
             self.visible = visible
             self.focused = False
             self.canFocus = canFocus
+            self.header = header
             self.displayTile = TerminalTiler.DisplayTile(
                 write_func=write_func,
                 merge_func=merge_func,
@@ -3275,7 +3343,36 @@ class TerminalTiler:
             Args:
                 text (str): Text to add to text buffer.
             """
-            self.displayTile.updateHeader(text)
+            with self.mutate:
+                self.header.update(text)
+
+        def clear(self):
+            """
+            Clears all table cells.
+            """
+            with self.mutate:
+                for _ in self.cells:
+                    for c in _:
+                        c.clear()
+
+        def clearHeader(self):
+            """
+            Clear header text.
+            """
+            with self.mutate:
+                self.header.clear()
+
+        def set(self, x:int, y:int, text:str):
+            """
+            Sets the text of a single table cell.
+
+            Args:
+                x (int): Zero-based column index of the cell.
+                y (int): Zero-based row index of the cell.
+                text (str): New text to display in the cell.
+            """
+            with self.mutate:
+                self.cells[y][x].set(text)
 
         def drawBorder(self):
             """
@@ -3395,9 +3492,8 @@ class TerminalTiler:
                         cell.displayTile.height = height
                         cell.displayTile.resize()
                         cell.displayTile.focused = self.focused
-                        cell.displayTile.text.clear()
                         cell.displayTile.visible = True
-                        cell.displayTile.update(cell.text)
+                        cell.displayTile.set(cell.text)
 
                         x += width + 1
 
@@ -4393,6 +4489,7 @@ class TerminalTiler:
             with self.popup:
                 # check if another thread is writing
                 with self.lock:
+                    
                     # fg
                     if not fg_color is None:
                         os.write(self.stdout_FDI.real_fd, f"\033[38;2;{fg_color[0]};{fg_color[1]};{fg_color[2]}m".encode())
