@@ -40,12 +40,11 @@ input2 = tt.addInputTile(
 )
 
 # INTRO
-display.update("Welcome to the InputTile demo.\n \nPress any key to continue.")
+display.set("Welcome to the InputTile demo.\n \nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # CONTROLS
-display.update("Use LEFT, RIGHT, HOME, and END to control the cursor. Use ESC to clear the current input.\n \nType 'next' to continue.")
+display.set("Use LEFT, RIGHT, HOME, and END to control the cursor. Use ESC to clear the current input.\n \nType 'next' to continue.")
 input1.show()
 tt.focus(input1)
 
@@ -57,8 +56,7 @@ while tt.isAlive():
             break
 
 # PROMPT
-display.clear()
-display.update("An inline prompt may be specified when the element is initialized. Input automatically wraps to empty lines but cannot exceed the borders of the InputTile.\n \nType 'next' to continue.")
+display.set("An inline prompt may be specified when the element is initialized. Input automatically wraps to empty lines but cannot exceed the borders of the InputTile.\n \nType 'next' to continue.")
 input1.hide()
 input1.resize(height=5)
 input1.setPrompt("Prompt: ")
@@ -72,8 +70,7 @@ while tt.isAlive():
             break
 
 # MULTIPLE
-display.clear()
-display.update("Keyboard input will be sent to the focused element. This allows multiple InputTiles to be active at once. Use TAB to switch between elements.\n\nType 'next' to continue.")
+display.set("Keyboard input will be sent to the focused element. This allows multiple InputTiles to be active at once. Use TAB to switch between elements.\n\nType 'next' to continue.")
 input1.hide()
 input1.resize(width=(display.width - 1) // 2, height=3)
 input1.setPrompt(">")
@@ -101,8 +98,7 @@ while tt.isAlive():
 # OUTRO
 input1.hide()
 input2.hide()
-display.clear()
-display.update("The End.\n\nPress any key to continue.")
+display.set("The End.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
