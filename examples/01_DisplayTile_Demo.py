@@ -17,9 +17,8 @@ display = tt.addDisplayTile(
 )
 
 # INTRO
-display.update("Welcome to the DisplayTile demo.\n\nPress any key to continue.")
+display.set("Welcome to the DisplayTile demo.\n\nPress any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # HEADERS
 # Replace header
@@ -31,27 +30,24 @@ display.header.textJust=TerminalTiler.Style.Justify.CENTERED
 display.resize()
 display.drawBorder()
 
-display.updateHeader("Headers")
-display.update("DisplayTiles may have a header. The number of lines in the header can be specified when the element is created. By default, no header is added.")
+display.header.set("Headers")
+display.set("DisplayTiles may have a header. The number of lines in the header can be specified when the element is created. By default, no header is added.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # SIZE MODE
-display.updateHeader("Size Mode")
-display.update("Size Mode may be set when the element is initialized. Available modes from TerminalTiler.Style.Size are:\n - FIXED\n - SCROLLING\nBy default, FIXED is used.")
+display.header.set("Size Mode")
+display.set("Size Mode may be set when the element is initialized. Available modes from TerminalTiler.Style.Size are:\n - FIXED\n - SCROLLING\nBy default, FIXED is used.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # FIXED
-display.updateHeader("Size Mode: FIXED")
-display.update("DisplayTile text disappears after scrolling off-screen.\n\n\n")
+display.header.set("Size Mode: FIXED")
+display.set("DisplayTile text disappears after scrolling off-screen.\n\n\n")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 for i in range(10):
     display.update(f"Line {i + 1}")
     tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.update(" \nPress ESC to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ESCAPE)
-display.clear()
 
 # Change size mode
 # Once again, this should be configured when the element is created.
@@ -60,8 +56,8 @@ display.resize()
 display.drawBorder()
 
 # SCROLLING
-display.updateHeader("Size Mode: SCROLLING")
-display.update("DisplayTile text can be scrolled with the keyboard.\n\n\n")
+display.header.set("Size Mode: SCROLLING")
+display.set("DisplayTile text can be scrolled with the keyboard.\n\n\n")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 for i in range(10):
     display.update(f"Line {i + 1}")
@@ -72,64 +68,55 @@ tt.waitForKey(TerminalTiler.Keyboard.KEY_ESCAPE)
 display.sizeMode = TerminalTiler.Style.Size.FIXED
 display.resize()
 display.drawBorder()
-display.clear()
 
 # JUSTIFICATION
-display.updateHeader("Justification")
-display.update("Text justification may be set for header and text buffers. Available modes from TerminalTiler.Style.Justify are:\n - LJUST\n - CENTERED\n - RJUST\nBy default, LJUST is used.")
+display.header.set("Justification")
+display.set("Text justification may be set for header and text buffers. Available modes from TerminalTiler.Style.Justify are:\n - LJUST\n - CENTERED\n - RJUST\nBy default, LJUST is used.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 display.header.textJust = TerminalTiler.Style.Justify.LJUST
 display.textJust = TerminalTiler.Style.Justify.LJUST
-display.updateHeader("Justification: LJUST")
-display.update("Text justification may be set for header and text buffers. Available modes from TerminalTiler.Style.Justify are:\n - LJUST\n - CENTERED\n - RJUST\nBy default, LJUST is used.")
+display.header.set("Justification: LJUST")
+display.set("Text justification may be set for header and text buffers. Available modes from TerminalTiler.Style.Justify are:\n - LJUST\n - CENTERED\n - RJUST\nBy default, LJUST is used.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 display.header.textJust = TerminalTiler.Style.Justify.CENTERED
 display.textJust = TerminalTiler.Style.Justify.CENTERED
-display.updateHeader("Justification: CENTERED")
-display.update("Text justification may be set for header and text buffers. Available modes from TerminalTiler.Style.Justify are:\n - LJUST\n - CENTERED\n - RJUST\nBy default, LJUST is used.")
+display.header.set("Justification: CENTERED")
+display.set("Text justification may be set for header and text buffers. Available modes from TerminalTiler.Style.Justify are:\n - LJUST\n - CENTERED\n - RJUST\nBy default, LJUST is used.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 display.header.textJust = TerminalTiler.Style.Justify.RJUST
 display.textJust = TerminalTiler.Style.Justify.RJUST
-display.updateHeader("Justification: RJUST")
-display.update("Text justification may be set for header and text buffers. Available modes from TerminalTiler.Style.Justify are:\n - LJUST\n - CENTERED\n - RJUST\nBy default, LJUST is used.")
+display.header.set("Justification: RJUST")
+display.set("Text justification may be set for header and text buffers. Available modes from TerminalTiler.Style.Justify are:\n - LJUST\n - CENTERED\n - RJUST\nBy default, LJUST is used.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 display.header.textJust = TerminalTiler.Style.Justify.CENTERED
 display.textJust = TerminalTiler.Style.Justify.LJUST
-display.clear()
 
 # WRAPPING
-display.updateHeader("Wrapping")
-display.update("Text wrapping may be set for header and text buffers. Available modes from TerminalTiler.Style.Wrap are:\n - NOWRAP\n - WRAP\n - WORD_WRAP\nBy default, NOWRAP is used.")
+display.header.set("Wrapping")
+display.set("Text wrapping may be set for header and text buffers. Available modes from TerminalTiler.Style.Wrap are:\n - NOWRAP\n - WRAP\n - WORD_WRAP\nBy default, NOWRAP is used.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 display.textWrap = TerminalTiler.Style.Wrap.NOWRAP
-display.updateHeader("Wrapping: NOWRAP")
-display.update("NOWRAP - No text wrapping.\nWRAP - Text wrapping. Text is wrapped on the character at the end of the line.\nWORD_WRAP - Text wrapping. Text is wrapped on the last space before the end of the line.")
+display.header.set("Wrapping: NOWRAP")
+display.set("NOWRAP - No text wrapping.\nWRAP - Text wrapping. Text is wrapped on the character at the end of the line.\nWORD_WRAP - Text wrapping. Text is wrapped on the last space before the end of the line.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 display.textWrap = TerminalTiler.Style.Wrap.WRAP
-display.updateHeader("Wrapping: WRAP")
-display.update("NOWRAP - No text wrapping.\nWRAP - Text wrapping. Text is wrapped on the character at the end of the line.\nWORD_WRAP - Text wrapping. Text is wrapped on the last space before the end of the line.")
+display.header.set("Wrapping: WRAP")
+display.set("NOWRAP - No text wrapping.\nWRAP - Text wrapping. Text is wrapped on the character at the end of the line.\nWORD_WRAP - Text wrapping. Text is wrapped on the last space before the end of the line.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 display.textWrap = TerminalTiler.Style.Wrap.WORD_WRAP
-display.updateHeader("Wrapping: WORD_WRAP")
-display.update("NOWRAP - No text wrapping.\nWRAP - Text wrapping. Text is wrapped on the character at the end of the line.\nWORD_WRAP - Text wrapping. Text is wrapped on the last space before the end of the line.")
+display.header.set("Wrapping: WORD_WRAP")
+display.set("NOWRAP - No text wrapping.\nWRAP - Text wrapping. Text is wrapped on the character at the end of the line.\nWORD_WRAP - Text wrapping. Text is wrapped on the last space before the end of the line.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
-display.clear()
 
 # OUTRO
-display.updateHeader("The End")
-display.update("Press any key to continue.")
+display.header.set("The End")
+display.set("Press any key to continue.")
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
 
 # Close terminal manager
