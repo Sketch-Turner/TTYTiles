@@ -17,7 +17,7 @@ display = tt.addDisplayTile(
 )
 
 # Update text
-display.update("\nHello World")
+display.set("\nHello World")
 
 # Wait for keypress
 tt.waitForKey(TerminalTiler.Keyboard.KEY_ANY)
