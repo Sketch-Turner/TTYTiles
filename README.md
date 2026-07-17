@@ -24,7 +24,9 @@ gif
 Python >=3.10
 
 ## Installation
+```bash
 pip install TTYTiles
+```
 
 ## Usage
 Start the UI manager by initializing a `TerminalTiler()` object. Create the desired elements. Once complete, use `close()` to restore the terminal environment.
@@ -1011,6 +1013,9 @@ A simple multithreaded port scanner demonstrating live terminal updates, progres
 
 ### 11_ProgressBar_TQDM
 When I grow up, I want to be just like TQDM.
+
+### 12_L33T_Dashboard
+An animated terminal dashboard showcasing the capabilities of TTYTiles.
 
 ## Issues
 
