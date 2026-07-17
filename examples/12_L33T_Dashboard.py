@@ -154,7 +154,7 @@ def update_password():
         password_hash = ''.join(random.choices('0123456789ABCDEF', k=32))
 
     password.set("\n\n".join([
-        "CRACKING PASSWORDS",
+        (" " * ((password.cols - 18) // 2)) + "CRACKING PASSWORDS",
         f"USER     : {password_user}",
         f"HASH     : {password_hash}",
         f"STATUS   : Working{'.' * (password_state % 6)}",
