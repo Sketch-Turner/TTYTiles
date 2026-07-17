@@ -171,7 +171,7 @@ def update_password():
             "BORDER_FG": (0,200,0)
         })
         password.set("\n\n".join([
-            "CRACKING PASSWORDS",
+            (" " * ((password.cols - 18) // 2)) + "CRACKING PASSWORDS",
             f"USER     : {password_user}",
             f"HASH     : {password_hash}",
             f"STATUS   : <Cracked>",
