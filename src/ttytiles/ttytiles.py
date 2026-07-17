@@ -3082,6 +3082,7 @@ class TerminalTiler:
             self.table_cols = 0
             self.row_list = []
             self.col_list = []
+            self.cells = []
             self.textWrap = textWrap if textWrap in TerminalTiler.Style.Wrap.STYLES else TerminalTiler.Style.Wrap.NOWRAP # default textWrap for cells
             self.textJust = textJust if textJust in TerminalTiler.Style.Justify.STYLES else TerminalTiler.Style.Justify.LJUST # default textJust for cells
             self.write = write_func
