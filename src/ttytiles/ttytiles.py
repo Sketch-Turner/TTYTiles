@@ -1879,6 +1879,15 @@ class TerminalTiler:
             with self.mutate:
                 self.displayTile.drawText()
 
+        def reset(self):
+            """
+            Reset ProgressBar state.
+            """
+            self.value = 0
+            self.startTime = None
+            self.lastUpdateTime = None
+            self.averageTime = 0.0
+
         def show(self):
             """
             Render element. Starts timer.
