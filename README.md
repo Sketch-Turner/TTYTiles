@@ -4,7 +4,7 @@ Python library for creating customizable terminal user interfaces. Provides tool
 
 Supports user input through `InputTile` and terminal output through `DisplayTile`, `Table`, `ProgressBar`, `MessageBox`, and `Alert` components.
 
-![Demo](/img/demo.gif)
+![Demo](https://raw.githubusercontent.com/Sketch-Turner/TTYTiles/main/img/demo.gif)
 
 ## Contents
 - [Requirements](#requirements)
