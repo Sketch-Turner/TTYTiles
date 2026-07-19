@@ -1,12 +1,9 @@
-from pathlib import Path
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.ttytiles.ttytiles import TerminalTiler
-
 import time
 import random
 import threading
 from math import sin, pi
+
+from ttytiles import TerminalTiler
 
 # Global
 tt = None

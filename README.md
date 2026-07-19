@@ -32,7 +32,7 @@ pip install TTYTiles
 Start the UI manager by initializing a `TerminalTiler()` object. Create the desired elements. Once complete, use `close()` to restore the terminal environment.
 
 ```python
-import ttytiles
+from ttytiles import TerminalTiler
 
 # Create terminal manager
 tt = TerminalTiler()

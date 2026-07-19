@@ -1,9 +1,4 @@
-from pathlib import Path
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from src.ttytiles.ttytiles import TerminalTiler
-
+from ttytiles import TerminalTiler
 
 # Initialize TerminalTiler.
 tt = TerminalTiler()

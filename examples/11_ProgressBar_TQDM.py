@@ -1,15 +1,8 @@
 import tqdm
-
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from src.ttytiles.ttytiles import TerminalTiler
-
 import time
 import os
 
+from ttytiles import TerminalTiler
 
 # Create the TerminalTiler instance.
 tt = TerminalTiler()
